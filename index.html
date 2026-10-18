@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Afterplay — Your Music Listening Diary</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- 1. CABEÇALHO GLOBAL (CLEAN & MINIMALISTA) -->
+    <header class="navbar">
+        <div class="logo">
+            <span class="rec-dot"></span>
+            <a href="#/" class="logo-link"><h1>AFTER<span>PLAY</span></h1></a>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="🔍 Buscar álbum ou artista...">
+            <button id="searchBtn">Buscar</button>
+        </div>
+
+        <div class="navbar-right">
+            <div class="user-profile">
+                <span class="status-badge">ON AIR</span>
+                <span class="username">Erick Nava</span>
+            </div>
+
+            <!-- BOTÃO HAMBURGER (3 TRACINHOS) -->
+            <button id="menuToggleBtn" class="hamburger-btn" title="Abrir Menu de Navegação">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 2. MENU LATERAL DESLIZANTE (OFF-CANVAS DRAWER) -->
+    <div id="drawerOverlay" class="drawer-overlay hidden"></div>
+    <aside id="sideDrawer" class="side-drawer">
+        <div class="drawer-header">
+            <span class="studio-tag">NAVIGATION CONSOLE</span>
+            <button id="closeDrawerBtn" class="close-drawer-btn" title="Fechar Menu">✕</button>
+        </div>
+
+        <nav class="drawer-nav">
+            <a href="#/" class="drawer-link active-route" data-route="home">
+                <span class="drawer-icon">📓</span>
+                <span class="drawer-text">Diário de Reviews</span>
+                <span class="drawer-badge" id="diaryCount">0</span>
+            </a>
+            <a href="#/want-to-listen" class="drawer-link" data-route="want">
+                <span class="drawer-icon">🕒</span>
+                <span class="drawer-text">Want to Listen</span>
+                <span class="drawer-badge" id="wantCount">0</span>
+            </a>
+            <a href="#/colecoes" class="drawer-link" data-route="collections">
+                <span class="drawer-icon">📁</span>
+                <span class="drawer-text">Minhas Coleções</span>
+                <span class="drawer-badge" id="collectionsCount">0</span>
+            </a>
+            <a href="#/perfil" class="drawer-link" data-route="profile">
+                <span class="drawer-icon">👤</span>
+                <span class="drawer-text">Perfil & Estatísticas</span>
+            </a>
+        </nav>
+
+        <div class="drawer-footer">
+            <div class="drawer-user-info">
+                <strong>Erick Nava</strong>
+                <span>Estúdio Manaus // Afterplay v1.5</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 3. CONTAINER DE ROTEAMENTO (VIEWS) -->
+    <main class="container">
+
+        <!-- PAINEL GLOBAL DE RESULTADOS DA BUSCA -->
+        <section id="searchResultsSection" class="search-results-section hidden">
+            <div class="section-header">
+                <h2 id="searchResultsTitle">🔎 RESULTADOS DA BUSCA</h2>
+                <button id="closeSearchBtn" class="close-search-btn">✕ Fechar Busca</button>
+            </div>
+            <div id="searchResultsGrid" class="search-grid"></div>
+        </section>
+
+        <!-- VIEW 1: HOME & DIÁRIO (#/ ou #/diario) -->
+        <div id="viewHome" class="router-view">
+            <!-- MURAL TOP 5 ÁLBUNS DA VIDA -->
+            <section class="top-five-section">
+                <div class="section-header">
+                    <h2>🔥 MEU TOP 5 ÁLBUNS DA VIDA</h2>
+                    <span class="studio-tag">TUBE AMP SELECTION // 01-05</span>
+                </div>
+                <div class="top-five-grid" id="topFiveGrid"></div>
+            </section>
+
+            <!-- BARRA DE FILTROS & ORDENAÇÃO DO DIÁRIO -->
+            <div id="diaryControls" class="diary-controls-bar">
+                <div class="filter-group">
+                    <label for="sortDiarySelect">Ordenar por:</label>
+                    <select id="sortDiarySelect" class="studio-select">
+                        <option value="recent">Adicionados Recentemente</option>
+                        <option value="ratingDesc">Maior Nota ★</option>
+                        <option value="ratingAsc">Menor Nota ★</option>
+                        <option value="yearDesc">Ano de Lançamento (Novos)</option>
+                        <option value="yearAsc">Ano de Lançamento (Antigos)</option>
+                    </select>
+                </div>
+                <div class="search-diary-group">
+                    <input type="text" id="filterDiaryInput" placeholder="Filtrar por artista ou álbum..." class="studio-mini-input">
+                </div>
+            </div>
+
+            <section class="diary-section" id="diarySection"></section>
+        </div>
+
+        <!-- VIEW 2: WANT TO LISTEN (#/want-to-listen) -->
+        <div id="viewWant" class="router-view hidden">
+            <div class="view-header">
+                <div>
+                    <h2>🕒 FILA DA VITROLA (WANT TO LISTEN)</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Álbuns aguardando sua próxima sessão de audição.</p>
+                </div>
+            </div>
+            <div class="search-grid" id="wantGrid" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- VIEW 3: COLEÇÕES TEMÁTICAS (#/colecoes) -->
+        <div id="viewCollections" class="router-view hidden">
+            <div class="collections-toolbar">
+                <div>
+                    <h2 style="font-size: 1.15rem; color: var(--text-primary); letter-spacing: 1px;">📁 MINHAS PASTAS TEMÁTICAS</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Curadorias personalizadas em gavetas conceituais.</p>
+                </div>
+                <button id="openCreateCollectionBtn" class="btn-create-collection">➕ Nova Coleção</button>
+            </div>
+            <div id="collectionsGrid" class="collections-grid"></div>
+        </div>
+
+<!-- VIEW 4: PERFIL & ESTATÍSTICAS (#/perfil) -->
+        <div id="viewProfile" class="router-view hidden">
+            <!-- CARTÃO DE IDENTIDADE DO OUVINTE -->
+            <div class="profile-card">
+                <div class="profile-avatar">🎙️</div>
+                <div class="profile-meta">
+                    <h2>Erick Nava</h2>
+                    <p class="studio-tag">LISTENER & PRODUCTION ENGINEER // MANAUS - AM</p>
+                    <p style="color: #D6D0C8; margin-top: 8px; font-size: 0.9rem;">
+                        "Ouvinte analógico, fã de produções bem lapidadas e diários de audição faixa a faixa."
+                    </p>
+                    <div class="profile-stats-row">
+                        <div class="stat-box">
+                            <strong id="statReviews">0</strong>
+                            <span>Álbuns Avaliados</span>
+                        </div>
+                        <div class="stat-box">
+                            <strong id="statWant">0</strong>
+                            <span>Na Fila (Want)</span>
+                        </div>
+                        <div class="stat-box">
+                            <strong id="statCollections">0</strong>
+                            <span>Coleções</span>
+                        </div>
+                        <div class="stat-box">
+                            <strong id="statAvgRating">0.0 ★</strong>
+                            <span>Nota Média Geral</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DESAFIO ANUAL DE AUDIÇÃO 2026 (GOODREADS CHALLENGE) -->
+            <div class="challenge-card">
+                <div class="challenge-header">
+                    <div>
+                        <div class="challenge-title-row">
+                            <span class="challenge-badge">2026 LISTENING CHALLENGE</span>
+                            <span id="challengePaceBadge" class="pace-badge">Calculando ritmo...</span>
+                        </div>
+                        <h3 id="challengeHeadline" style="font-size: 1.2rem; color: var(--text-primary); margin-top: 6px;">
+                            Meta de Audição: 0 de 50 álbuns
+                        </h3>
+                    </div>
+                    <button id="editGoalBtn" class="btn-secondary-action" style="margin-top: 0;">🎯 Ajustar Meta</button>
+                </div>
+
+                <!-- Barra de Progresso Analógica com Luz Valvulada -->
+                <div class="progress-track">
+                    <div id="progressBarFill" class="progress-fill" style="width: 0%;"></div>
+                </div>
+
+                <div class="challenge-footer">
+                    <span id="challengePercentText" style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--amber-glow);">
+                        0% concluído
+                    </span>
+                    <span id="challengeRemainingText" style="font-size: 0.8rem; color: var(--text-muted);">
+                        Faltam 50 álbuns para completar o desafio do ano
+                    </span>
+                </div>
+            </div>
+        </div>
+
+    <!-- 4. MODAIS -->
+    <!-- Modal de Avaliação / Edição -->
+    <div id="reviewModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span class="studio-tag" id="modalModeTag">STUDIO LOGGING CONSOLE // AVALIAÇÃO</span>
+                <button id="closeModalBtn" class="close-search-btn">✕ Fechar</button>
+            </div>
+            <div class="modal-album-info">
+                <img id="modalCover" src="" alt="Capa" class="modal-cover">
+                <div class="modal-meta">
+                    <h2 id="modalAlbumTitle">Nome do Álbum</h2>
+                    <p id="modalArtistYear" class="artist-name">Artista • Ano</p>
+                    <div class="modal-quick-actions">
+                        <button id="pinTopFiveBtn" class="btn-pin-top5">📌 Fixar no Meu Top 5 da Vida</button>
+                        <button id="modalAddCollectionBtn" class="btn-secondary-action">📁 + Coleção</button>
+                    </div>
+                </div>
+            </div>
+            <div class="tracklist-container">
+                <div class="tracklist-header">
+                    <span>FAIXAS DO ÁLBUM (Clique no ❤️ para definir a favorita)</span>
+                    <span id="calculatedAvgBadge" class="avg-badge">Média das Faixas: --</span>
+                </div>
+                <div id="modalTracklist" class="tracklist-scroll"></div>
+            </div>
+            <div class="final-review-form">
+                <div class="interactive-rating-container">
+                    <label>NOTA GERAL DO ÁLBUM:</label>
+                    <div class="interactive-star-selector" id="interactiveStarPicker"></div>
+                    <span id="displayScoreText" class="display-score-tag">5.0 ★</span>
+                </div>
+                <textarea id="reviewTextInput" rows="3" placeholder="Escreva sua review sobre o álbum..."></textarea>
+                <button id="saveReviewBtn" class="btn-save-review">💾 SALVAR AVALIAÇÃO</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nova Coleção -->
+    <div id="createCollectionModal" class="modal-overlay hidden">
+        <div class="modal-box" style="max-width: 500px;">
+            <div class="modal-header">
+                <span class="studio-tag">CRIAÇÃO DE COLEÇÃO TEMÁTICA</span>
+                <button id="closeCreateCollectionBtn" class="close-search-btn">✕</button>
+            </div>
+            <div class="collection-form">
+                <label>Nome da Coleção:</label>
+                <input type="text" id="newCollectionNameInput" class="studio-input" placeholder="Ex: Obras-primas dos Anos 70, Madrugada R&B...">
+                <label style="margin-top: 14px;">Descrição Curta (Opcional):</label>
+                <textarea id="newCollectionDescInput" rows="2" class="studio-input" placeholder="Ex: Discos gravados na era analógica..."></textarea>
+                <button id="submitCreateCollectionBtn" class="btn-save-review" style="margin-top: 18px;">✨ CRIAR PASTA TEMÁTICA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Adicionar a Coleção -->
+    <div id="addToCollectionModal" class="modal-overlay hidden">
+        <div class="modal-box" style="max-width: 480px;">
+            <div class="modal-header">
+                <span class="studio-tag">GUARDAR EM UMA COLEÇÃO</span>
+                <button id="closeAddToCollectionBtn" class="close-search-btn">✕</button>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <h3 id="targetAlbumNameDisplay" style="font-size: 1rem; color: var(--amber-glow);">Álbum</h3>
+                <p style="font-size: 0.8rem; color: var(--text-muted);">Escolha em qual gaveta temática deseja arquivar este disco:</p>
+            </div>
+            <div id="collectionChoicesList" class="collection-choices-list"></div>
+        </div>
+    </div>
+
+<!-- 6. MODAL DO GERADOR DE CARD VISUAL EM CANVAS (COM CUSTOMIZAÇÕES) -->
+    <div id="cardStudioModal" class="modal-overlay hidden">
+        <div class="modal-box card-studio-box">
+            <div class="modal-header">
+                <span class="studio-tag">AFTERPLAY STUDIO // SHARE CARD CUSTOMIZER</span>
+                <button id="closeCardStudioBtn" class="close-search-btn">✕</button>
+            </div>
+
+            <!-- CONTROLES DE CUSTOMIZAÇÃO DO CARD -->
+            <div class="card-controls-panel">
+                <!-- Seletor de Modelo (Layout) -->
+                <div class="control-subgroup">
+                    <label>LAYOUT:</label>
+                    <div class="card-style-toggles">
+                        <button type="button" class="btn-toggle active" id="layoutStudioBtn">🎙️ Studio Editorial</button>
+                        <button type="button" class="btn-toggle" id="layoutMinimalBtn">✨ Minimalista</button>
+                    </div>
+                </div>
+
+                <!-- Seletor de Tema / Fundo -->
+                <div class="control-subgroup">
+                    <label>FUNDO & TEMA:</label>
+                    <div class="theme-palette-picker">
+                        <button type="button" class="theme-color-dot active" data-theme="midnight" title="Midnight Espresso" style="background: #181413; border-color: #F59E0B;"></button>
+                        <button type="button" class="theme-color-dot" data-theme="tubeglow" title="Tube Glow (Âmbar Quente)" style="background: radial-gradient(circle, #78350f, #121010);"></button>
+                        <button type="button" class="theme-color-dot" data-theme="deepvelvet" title="Deep Velvet (Índigo Noturno)" style="background: linear-gradient(135deg, #1e1b4b, #0f0e17);"></button>
+                        <button type="button" class="theme-color-dot" data-theme="graphite" title="Matte Graphite (Console)" style="background: #1f2228;"></button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-preview-container">
+                <canvas id="shareCanvas" width="1080" height="1350" class="canvas-preview"></canvas>
+            </div>
+
+            <div class="card-studio-actions">
+                <span class="studio-tag" id="cardResolutionLabel">1080x1350 // HD PNG</span>
+                <button id="downloadCardBtn" class="btn-save-review" style="width: auto; padding: 10px 24px;">📥 BAIXAR IMAGEM (PNG)</button>
+            </div>
+        </div>
+    </div>
+    <!-- CONTAINER DE TOASTS -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
