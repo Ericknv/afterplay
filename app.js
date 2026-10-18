@@ -1,56 +1,25 @@
 // ============================================================================
-// AFTERPLAY — MOTOR COMPLETO (app.js)
-// Release 3.0: Listening Moods, Audio Previews, Card Studio 3.0, Busca & Cloud
+// AFTERPLAY — MOTOR PRINCIPAL DO ESTÚDIO (app.js)
+// Release 4.0: Audio, Canvas Studio, Listening Moods & Supabase Cloud
 // ============================================================================
 
-// --- 1. BANCO DE DADOS LOCAL (LOCALSTORAGE) ---
-let diaryReviews = JSON.parse(localStorage.getItem('afterplay_diary')) || [
-    {
-        id: 1440857781,
-        title: "Random Access Memories",
-        artist: "Daft Punk",
-        year: "2013",
-        cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/b4/13/e9/b413e91d-40aa-a1a8-b8e3-2b43b3e2226b/886443927087.jpg/600x600bb.jpg",
-        rating: 5.0,
-        favTrack: "Giorgio by Moroder",
-        vibes: ["Madrugada", "Headphones"],
-        reviewText: "Uma aula de produção analógica. Ouvir a bateria e o baixo gravados ao vivo em estúdio traz um calor humano absurdo para a música eletrônica.",
-        date: "17/10/2026"
-    }
-];
+// --- 1. ESTADO GLOBAL ---
+let currentUser = null;
+let currentSessionToken = null;
+let diaryReviews = [];
+let wantToListen = [];
+let topFiveAlbums = [null, null, null, null, null];
+let collections = [];
+let challengeGoal = 50;
 
-let wantToListen = JSON.parse(localStorage.getItem('afterplay_want')) || [];
-
-let topFiveAlbums = JSON.parse(localStorage.getItem('afterplay_top5')) || [
-    {
-        id: 1440857781,
-        title: "Random Access Memories",
-        artist: "Daft Punk",
-        year: "2013",
-        cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/b4/13/e9/b413e91d-40aa-a1a8-b8e3-2b43b3e2226b/886443927087.jpg/600x600bb.jpg"
-    },
-    null, null, null, null
-];
-
-let collections = JSON.parse(localStorage.getItem('afterplay_collections')) || [
-    {
-        id: 1,
-        name: "Obras-primas dos Anos 70",
-        description: "Discos emblemáticos de rock progressivo, MPB e soul analógico.",
-        albums: []
-    }
-];
-
-let challengeGoal = parseInt(localStorage.getItem('afterplay_challenge_goal')) || 50;
-
-// Estados Temporários
+// Estados de Operação
 let currentAlbumInModal = null;
 let albumToAddToCollection = null;
 let selectedFavTrack = "Nenhuma selecionada";
 let selectedVisualScore = 5.0;
 let selectedVibes = [];
 let currentVibeFilter = 'all';
-let editingReviewIndex = null;
+let editingReviewId = null;
 let lastSearchResults = [];
 let activeReviewForCard = null;
 let cachedArtistAlbums = [];
@@ -63,7 +32,64 @@ let wrappedType = 'monthly';
 let currentWrappedData = null;
 let activeOpenCollectionId = null;
 
-// Views do SPA Router
+// Função global para abrir a recuperação de senha
+window.openResetPasswordModal = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    const modal = document.getElementById('resetPasswordModal');
+    const reqStep = document.getElementById('requestResetStep');
+    const updStep = document.getElementById('updatePasswordStep');
+    const emailInput = document.getElementById('resetEmailInput');
+    const loginEmailInput = document.getElementById('gateEmailInput');
+
+    if (modal) {
+        if (reqStep) reqStep.classList.remove('hidden');
+        if (updStep) updStep.classList.add('hidden');
+
+        if (emailInput && loginEmailInput) {
+            emailInput.value = loginEmailInput.value.trim();
+        }
+
+        modal.classList.remove('hidden');
+
+        if (emailInput) {
+            setTimeout(() => emailInput.focus(), 120);
+        }
+    }
+};
+// Medidor de Senha & Recuperação
+const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+const passwordStrengthWrapper = document.getElementById('passwordStrengthWrapper');
+const passwordStrengthFill = document.getElementById('passwordStrengthFill');
+const passwordStrengthLabel = document.getElementById('passwordStrengthLabel');
+
+const resetPasswordModal = document.getElementById('resetPasswordModal');
+const closeResetPasswordBtn = document.getElementById('closeResetPasswordBtn');
+const requestResetStep = document.getElementById('requestResetStep');
+const updatePasswordStep = document.getElementById('updatePasswordStep');
+const resetEmailInput = document.getElementById('resetEmailInput');
+const sendResetEmailBtn = document.getElementById('sendResetEmailBtn');
+const newPasswordInput = document.getElementById('newPasswordInput');
+const confirmPasswordInput = document.getElementById('confirmPasswordInput');
+const submitNewPasswordBtn = document.getElementById('submitNewPasswordBtn');
+// --- 2. SELETORES DO DOM ---
+const authGateScreen = document.getElementById('authGateScreen');
+const appMainContainer = document.getElementById('appMainContainer');
+const gateTabLoginBtn = document.getElementById('gateTabLoginBtn');
+const gateTabRegisterBtn = document.getElementById('gateTabRegisterBtn');
+const gateNameField = document.getElementById('gateNameField');
+const gateNameInput = document.getElementById('gateNameInput');
+const gateEmailInput = document.getElementById('gateEmailInput');
+const gatePasswordInput = document.getElementById('gatePasswordInput');
+const gateSubmitBtn = document.getElementById('gateSubmitBtn');
+let gateAuthMode = 'login';
+
+const openAuthModalBtn = document.getElementById('openAuthModalBtn');
+const authStatusText = document.getElementById('authStatusText');
+
 const views = {
     '#/': document.getElementById('viewHome'),
     '#/diario': document.getElementById('viewHome'),
@@ -73,14 +99,12 @@ const views = {
     '#/perfil': document.getElementById('viewProfile')
 };
 
-// Drawer Lateral
 const menuToggleBtn = document.getElementById('menuToggleBtn');
 const sideDrawer = document.getElementById('sideDrawer');
 const drawerOverlay = document.getElementById('drawerOverlay');
 const closeDrawerBtn = document.getElementById('closeDrawerBtn');
 const drawerLinks = document.querySelectorAll('.drawer-link');
 
-// Busca Dedicada
 const dedicatedSearchInput = document.getElementById('dedicatedSearchInput');
 const dedicatedSearchBtn = document.getElementById('dedicatedSearchBtn');
 const searchResultsTitle = document.getElementById('searchResultsTitle');
@@ -93,7 +117,6 @@ const discographyArtistName = document.getElementById('discographyArtistName');
 const discographySortControl = document.getElementById('discographySortControl');
 const sortDiscographySelect = document.getElementById('sortDiscographySelect');
 
-// Diário e Fila
 const diarySection = document.getElementById('diarySection');
 const wantGrid = document.getElementById('wantGrid');
 const collectionsGrid = document.getElementById('collectionsGrid');
@@ -108,7 +131,6 @@ const filterDiaryInput = document.getElementById('filterDiaryInput');
 const vibeFilterChips = document.querySelectorAll('.vibe-chip');
 const vibePickerChips = document.querySelectorAll('.vibe-select-chip');
 
-// Visualizador Detalhado de Coleções
 const collectionsMainContainer = document.getElementById('collectionsMainContainer');
 const collectionDetailContainer = document.getElementById('collectionDetailContainer');
 const backToCollectionsBtn = document.getElementById('backToCollectionsBtn');
@@ -118,13 +140,11 @@ const collectionDetailCount = document.getElementById('collectionDetailCount');
 const collectionDetailAvg = document.getElementById('collectionDetailAvg');
 const collectionDetailGrid = document.getElementById('collectionDetailGrid');
 
-// Estatísticas do Perfil
 const statReviews = document.getElementById('statReviews');
 const statWant = document.getElementById('statWant');
 const statCollections = document.getElementById('statCollections');
 const statAvgRating = document.getElementById('statAvgRating');
 
-// Desafio Anual
 const editGoalBtn = document.getElementById('editGoalBtn');
 const challengeHeadline = document.getElementById('challengeHeadline');
 const progressBarFill = document.getElementById('progressBarFill');
@@ -132,7 +152,6 @@ const challengePercentText = document.getElementById('challengePercentText');
 const challengeRemainingText = document.getElementById('challengeRemainingText');
 const challengePaceBadge = document.getElementById('challengePaceBadge');
 
-// Histograma, Métricas e Moods
 const ratingsHistogram = document.getElementById('ratingsHistogram');
 const mostFrequentRatingTag = document.getElementById('mostFrequentRatingTag');
 const decadesList = document.getElementById('decadesList');
@@ -141,7 +160,6 @@ const topArtistsList = document.getElementById('topArtistsList');
 const dominantVibeTag = document.getElementById('dominantVibeTag');
 const vibeAnalyticsList = document.getElementById('vibeAnalyticsList');
 
-// Modais
 const reviewModal = document.getElementById('reviewModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const modalModeTag = document.getElementById('modalModeTag');
@@ -157,7 +175,6 @@ const modalAddCollectionBtn = document.getElementById('modalAddCollectionBtn');
 const interactiveStarPicker = document.getElementById('interactiveStarPicker');
 const displayScoreText = document.getElementById('displayScoreText');
 
-// Engine de Áudio & Mini Player de Estúdio
 let afterplayAudio = document.getElementById('afterplayAudio');
 if (!afterplayAudio) {
     afterplayAudio = document.createElement('audio');
@@ -173,7 +190,6 @@ const playerTimeDisplay = document.getElementById('playerTimeDisplay');
 let currentPlayingPreviewUrl = null;
 let currentPlayingBtn = null;
 
-// Card Studio 3.0 & Proporções
 const cardStudioModal = document.getElementById('cardStudioModal');
 const closeCardStudioBtn = document.getElementById('closeCardStudioBtn');
 const shareCanvas = document.getElementById('shareCanvas');
@@ -193,7 +209,6 @@ const aspectDimensions = {
     '1:1': { width: 1080, height: 1080, label: '1080x1080 // FEED QUADRADO (1:1)' }
 };
 
-// Outros Modais
 const createCollectionModal = document.getElementById('createCollectionModal');
 const openCreateCollectionBtn = document.getElementById('openCreateCollectionBtn');
 const closeCreateCollectionBtn = document.getElementById('closeCreateCollectionBtn');
@@ -226,20 +241,706 @@ const wrappedYearSelect = document.getElementById('wrappedYearSelect');
 const wrappedFullYearSelect = document.getElementById('wrappedFullYearSelect');
 const openWrappedBtn = document.getElementById('openWrappedBtn');
 
-// Backup & Cloud Sync
-const exportBackupBtn = document.getElementById('exportBackupBtn');
-const importBackupInput = document.getElementById('importBackupInput');
-const cloudSyncModalBtn = document.getElementById('cloudSyncModalBtn');
-const cloudSyncModal = document.getElementById('cloudSyncModal');
-const closeCloudModalBtn = document.getElementById('closeCloudModalBtn');
-const cloudEndpointInput = document.getElementById('cloudEndpointInput');
-const cloudKeyInput = document.getElementById('cloudKeyInput');
-const saveCloudSyncBtn = document.getElementById('saveCloudSyncBtn');
-const fetchCloudSyncBtn = document.getElementById('fetchCloudSyncBtn');
+const authModal = document.getElementById('authModal');
+const closeAuthModalBtn = document.getElementById('closeAuthModalBtn');
+const sessionUserName = document.getElementById('sessionUserName');
+const sessionUserEmail = document.getElementById('sessionUserEmail');
+const forceSyncCloudBtn = document.getElementById('forceSyncCloudBtn');
+const logoutBtn = document.getElementById('logoutBtn');
 
 const toastContainer = document.getElementById('toastContainer');
 
-// --- 0. CONTROLE DO MENU LATERAL (DRAWER) ---
+// --- 4. SANITIZAÇÃO RIGOROSA CONTRA XSS ---
+function sanitize(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+        .replace(/`/g, '&#x60;')
+        .replace(/\//g, '&#x2F;');
+}
+
+// --- 4. TOASTS DO ESTÚDIO ---
+function showToast({ title, message, icon = '🎵', type = 'success', spin = false, duration = 3800 }) {
+    if (!toastContainer) return;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+
+    toast.innerHTML = `
+        <div class="toast-icon ${spin ? 'spin-icon' : ''}">${icon}</div>
+        <div class="toast-body">
+            <span class="toast-title">${sanitize(title)}</span>
+            <span class="toast-message">${sanitize(message)}</span>
+        </div>
+        <button class="toast-close" title="Fechar">✕</button>
+    `;
+
+    toastContainer.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+
+    const closeToast = () => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 350);
+    };
+
+    const closeBtn = toast.querySelector('.toast-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeToast);
+    setTimeout(closeToast, duration);
+}
+
+function lockAppInterface() {
+    if (authGateScreen) authGateScreen.classList.remove('hidden');
+    if (appMainContainer) appMainContainer.classList.add('hidden');
+    
+    if (openAuthModalBtn) {
+        openAuthModalBtn.classList.remove('logged-in');
+        if (authStatusText) authStatusText.textContent = "CONECTAR NUVEM";
+    }
+
+    // 🔒 Higienização de segurança: zera todos os campos do formulário
+    if (gateEmailInput) gateEmailInput.value = '';
+    if (gatePasswordInput) gatePasswordInput.value = '';
+    if (gateNameInput) gateNameInput.value = '';
+
+    stopAudio();
+}
+
+function unlockAppInterface() {
+    if (authGateScreen) authGateScreen.classList.add('hidden');
+    if (appMainContainer) appMainContainer.classList.remove('hidden');
+
+    if (currentUser) {
+        const rawName = (currentUser.user_metadata && currentUser.user_metadata.name) || currentUser.email.split('@')[0];
+        const displayName = rawName.trim();
+
+        if (openAuthModalBtn) {
+            openAuthModalBtn.classList.add('logged-in');
+            if (authStatusText) authStatusText.textContent = displayName.toUpperCase();
+        }
+
+        if (sessionUserName) sessionUserName.textContent = displayName;
+        if (sessionUserEmail) sessionUserEmail.textContent = currentUser.email;
+    }
+
+    // Garante que o roteador posicione na view correta (e isole o Hero na Home)
+    handleRouting();
+}
+async function checkAuthSession() {
+    const session = dbAuth.getSession();
+    if (session && session.user) {
+        currentUser = session.user;
+        currentSessionToken = session.access_token;
+        unlockAppInterface();
+        await loadAllUserDataFromSupabase();
+    } else {
+        lockAppInterface();
+    }
+}
+
+// Abrir e fechar a modal do Perfil ao clicar no botão verde do cabeçalho
+if (openAuthModalBtn) {
+    openAuthModalBtn.addEventListener('click', () => {
+        if (currentUser) {
+            const rawName = (currentUser.user_metadata && currentUser.user_metadata.name) || currentUser.email.split('@')[0];
+            if (sessionUserName) sessionUserName.textContent = rawName.trim();
+            if (sessionUserEmail) sessionUserEmail.textContent = currentUser.email;
+            if (authModal) authModal.classList.remove('hidden');
+        } else {
+            lockAppInterface();
+        }
+    });
+}
+
+if (closeAuthModalBtn) {
+    closeAuthModalBtn.addEventListener('click', () => {
+        if (authModal) authModal.classList.add('hidden');
+    });
+}
+
+// Listener único para encerramento de sessão
+if (logoutBtn) {
+    // Remove qualquer listener prévio clonando o nó (garantia contra duplicações)
+    const newLogoutBtn = logoutBtn.cloneNode(true);
+    logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
+
+    newLogoutBtn.addEventListener('click', async () => {
+        if (confirm("Deseja realmente encerrar a sessão deste estúdio?")) {
+            await dbAuth.signOut();
+            currentUser = null;
+            currentSessionToken = null;
+            diaryReviews = [];
+            wantToListen = [];
+            collections = [];
+            topFiveAlbums = [null, null, null, null, null];
+            
+            if (authModal) authModal.classList.add('hidden');
+            lockAppInterface();
+            showToast({ title: "Sessão Encerrada", message: "Estúdio em modo protegido.", icon: "🚪", type: "info" });
+        }
+    });
+}   
+
+// Na aba de ENTRAR (Login) -> MOSTRA o link de recuperação
+if (gateTabLoginBtn) {
+    gateTabLoginBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        gateAuthMode = 'login';
+        gateTabLoginBtn.classList.add('active');
+        if (gateTabRegisterBtn) gateTabRegisterBtn.classList.remove('active');
+        if (gateNameField) gateNameField.style.display = 'none';
+        if (gateSubmitBtn) gateSubmitBtn.textContent = '⚡ ACESSAR MEU ACERVO';
+        
+        // Esconde a barra de força e MOSTRA o esqueci senha
+        if (passwordStrengthWrapper) passwordStrengthWrapper.style.display = 'none';
+        if (forgotPasswordLink) forgotPasswordLink.style.display = 'inline-block';
+    });
+}
+
+// Na aba de CRIAR CONTA (Register) -> ESCONDE o link de recuperação
+if (gateTabRegisterBtn) {
+    gateTabRegisterBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        gateAuthMode = 'register';
+        gateTabRegisterBtn.classList.add('active');
+        if (gateTabLoginBtn) gateTabLoginBtn.classList.remove('active');
+        if (gateNameField) gateNameField.style.display = 'flex';
+        if (gateSubmitBtn) gateSubmitBtn.textContent = '✨ CRIAR MINHA CONTA & ENTRAR';
+        
+        // Mostra a barra de força e ESCONDE o esqueci senha
+        if (passwordStrengthWrapper) passwordStrengthWrapper.style.display = 'flex';
+        if (forgotPasswordLink) forgotPasswordLink.style.display = 'none';
+    });
+}
+
+// Cálculo e visualização da força da senha no cadastro (sem bug de inline style)
+if (gatePasswordInput) {
+    gatePasswordInput.addEventListener('input', () => {
+        if (gateAuthMode !== 'register') return;
+
+        const val = gatePasswordInput.value;
+
+        // Se o campo estiver vazio, reseta totalmente o medidor
+        if (!val) {
+            passwordStrengthFill.className = 'strength-fill';
+            passwordStrengthFill.style.width = '0%';
+            passwordStrengthLabel.textContent = 'Mínimo 6 caracteres';
+            passwordStrengthLabel.className = 'strength-label';
+            return;
+        }
+
+        // Remove o inline width para permitir que o CSS defina a largura por classe
+        passwordStrengthFill.style.width = '';
+
+        let score = 0;
+        if (val.length >= 6) score++;
+        if (val.length >= 9) score++;
+        if (/[0-9]/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+
+        passwordStrengthFill.className = 'strength-fill';
+        passwordStrengthLabel.className = 'strength-label';
+
+        if (score <= 1) {
+            passwordStrengthFill.classList.add('weak');
+            passwordStrengthLabel.classList.add('weak');
+            passwordStrengthLabel.textContent = 'Senha fraca (adicione números ou símbolos)';
+        } else if (score <= 3) {
+            passwordStrengthFill.classList.add('medium');
+            passwordStrengthLabel.classList.add('medium');
+            passwordStrengthLabel.textContent = 'Senha moderada';
+        } else {
+            passwordStrengthFill.classList.add('strong');
+            passwordStrengthLabel.classList.add('strong');
+            passwordStrengthLabel.textContent = 'Senha forte e segura ✓';
+        }
+    });
+}
+
+// -------------------------------------------------------------
+// MOMENTO 1: ABRIR E FECHAR A MODAL DE RECUPERAÇÃO
+// -------------------------------------------------------------
+// Abrir modal de recuperação
+if (forgotPasswordLink) {
+    forgotPasswordLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (resetPasswordModal) {
+            // Garante que inicie na etapa de envio de e-mail
+            if (requestResetStep) requestResetStep.classList.remove('hidden');
+            if (updatePasswordStep) updatePasswordStep.classList.add('hidden');
+            
+            // Puxa o e-mail digitado no login, se houver
+            if (resetEmailInput && gateEmailInput) {
+                resetEmailInput.value = gateEmailInput.value.trim();
+            }
+
+            resetPasswordModal.classList.remove('hidden');
+            
+            // Foco imediato no campo de e-mail
+            if (resetEmailInput) {
+                setTimeout(() => resetEmailInput.focus(), 100);
+            }
+        }
+    });
+}
+
+// Fechar modal de recuperação no botão ✕
+if (closeResetPasswordBtn) {
+    closeResetPasswordBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (resetPasswordModal) resetPasswordModal.classList.add('hidden');
+    });
+}
+
+// Fechar ao clicar fora da caixa (no overlay escuro)
+if (resetPasswordModal) {
+    resetPasswordModal.addEventListener('click', (e) => {
+        if (e.target === resetPasswordModal) {
+            resetPasswordModal.classList.add('hidden');
+        }
+    });
+}
+
+// -------------------------------------------------------------
+// MOMENTO 2: DISPARAR O E-MAIL PELO SUPABASE
+// -------------------------------------------------------------
+if (sendResetEmailBtn) {
+    sendResetEmailBtn.addEventListener('click', async () => {
+        const email = resetEmailInput ? resetEmailInput.value.trim() : '';
+        if (!email) {
+            showToast({ title: "E-mail Ausente", message: "Informe seu e-mail cadastrado.", icon: "⚠️", type: "info" });
+            return;
+        }
+
+        sendResetEmailBtn.disabled = true;
+        sendResetEmailBtn.textContent = "ENVIANDO LINK...";
+
+        try {
+            await dbAuth.resetPasswordForEmail(email);
+            showToast({
+                title: "Link Enviado!",
+                message: "Verifique sua caixa de entrada para redefinir sua senha.",
+                icon: "✉️",
+                type: "success"
+            });
+            if (resetPasswordModal) resetPasswordModal.classList.add('hidden');
+        } catch (err) {
+            console.error(err);
+            showToast({ title: "Falha no Envio", message: err.message, icon: "⚠️", type: "favorite" });
+        } finally {
+            sendResetEmailBtn.disabled = false;
+            sendResetEmailBtn.textContent = "✉️ ENVIAR LINK DE RECUPERAÇÃO";
+        }
+    });
+}
+
+// -------------------------------------------------------------
+// MOMENTO 3: DETECTAR SE O USUÁRIO ENTROU PELO LINK DO E-MAIL
+// -------------------------------------------------------------
+// Quando o Supabase manda o e-mail e você clica, a URL volta com "#access_token=...&type=recovery"
+function checkRecoveryHash() {
+    const hash = window.location.hash;
+    if (hash && (hash.includes('type=recovery') || hash.includes('access_token='))) {
+        const params = new URLSearchParams(hash.replace('#', '?'));
+        const accessToken = params.get('access_token');
+        
+        if (accessToken) {
+            // Guarda o token temporário para autorizar a troca da senha
+            dbAuth.setSession({ access_token: accessToken, user: { email: 'recuperacao' } });
+            
+            // Abre direto a modal na Etapa B (digitar a nova senha)
+            if (resetPasswordModal) {
+                if (requestResetStep) requestResetStep.classList.add('hidden');
+                if (updatePasswordStep) updatePasswordStep.classList.remove('hidden');
+                resetPasswordModal.classList.remove('hidden');
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// MOMENTO 4: SALVAR A NOVA SENHA DIGITADA
+// -------------------------------------------------------------
+if (submitNewPasswordBtn) {
+    submitNewPasswordBtn.addEventListener('click', async () => {
+        const p1 = newPasswordInput ? newPasswordInput.value.trim() : '';
+        const p2 = confirmPasswordInput ? confirmPasswordInput.value.trim() : '';
+
+        if (!p1 || p1.length < 6) {
+            showToast({ title: "Senha Curta", message: "A nova senha deve ter no mínimo 6 caracteres.", icon: "⚠️", type: "info" });
+            return;
+        }
+
+        if (p1 !== p2) {
+            showToast({ title: "Senhas Divergentes", message: "A confirmação de senha não confere.", icon: "⚠️", type: "info" });
+            return;
+        }
+
+        submitNewPasswordBtn.disabled = true;
+        submitNewPasswordBtn.textContent = "ATUALIZANDO...";
+
+        try {
+            await dbAuth.updateUserPassword(p1);
+            showToast({
+                title: "Chave Atualizada!",
+                message: "Senha alterada com sucesso! Faça login com a nova senha.",
+                icon: "🔒",
+                type: "success"
+            });
+            
+            await dbAuth.signOut();
+            if (resetPasswordModal) resetPasswordModal.classList.add('hidden');
+            lockAppInterface();
+        } catch (err) {
+            console.error(err);
+            showToast({ title: "Erro na Atualização", message: err.message, icon: "⚠️", type: "favorite" });
+        } finally {
+            submitNewPasswordBtn.disabled = false;
+            submitNewPasswordBtn.textContent = "🔒 ATUALIZAR CHAVE & ENTRAR";
+        }
+    });
+}
+
+// Submissão do Formulário de Auth
+if (gateSubmitBtn) {
+    gateSubmitBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+
+        const email = gateEmailInput ? gateEmailInput.value.trim() : '';
+        const password = gatePasswordInput ? gatePasswordInput.value.trim() : '';
+        const name = gateNameInput ? gateNameInput.value.trim() : '';
+
+        if (!email || !password) {
+            showToast({ title: "Campos Vazios", message: "Informe seu e-mail e senha cadastrados.", icon: "⚠️", type: "info" });
+            return;
+        }
+
+        if (password.length < 6) {
+            showToast({ title: "Senha Insegura", message: "A senha deve ter pelo menos 6 caracteres.", icon: "⚠️", type: "info" });
+            return;
+        }
+
+        gateSubmitBtn.disabled = true;
+        gateSubmitBtn.textContent = "CONECTANDO AO SUPABASE...";
+
+        try {
+            if (gateAuthMode === 'register') {
+                const { data, error } = await dbAuth.signUp(email, password, name);
+                if (error) throw error;
+
+                currentUser = data.user;
+                currentSessionToken = (data.session && data.session.access_token) || 'auth_token';
+                dbAuth.setSession({ user: currentUser, access_token: currentSessionToken });
+
+                await executeSupabaseQuery('profiles', 'UPSERT', {
+                    id: currentUser.id,
+                    display_name: name || email.split('@')[0],
+                    challenge_goal: 50,
+                    top_five: [null, null, null, null, null]
+                });
+
+                showToast({ title: "Conta Criada!", message: "Acesso liberado ao estúdio.", icon: "✨", type: "success" });
+                unlockAppInterface();
+                await loadAllUserDataFromSupabase();
+            } else {
+                const { data, error } = await dbAuth.signInWithPassword(email, password);
+                if (error) throw error;
+
+                currentUser = data.user;
+                currentSessionToken = data.session.access_token;
+                dbAuth.setSession({ user: currentUser, access_token: currentSessionToken });
+
+                showToast({ title: "Sessão Aberta", message: "Conectado ao seu acervo na nuvem.", icon: "🟢", type: "success" });
+                unlockAppInterface();
+                await loadAllUserDataFromSupabase();
+            }
+        } catch (err) {
+            console.error(err);
+            showToast({ title: "Falha de Autenticação", message: err.message || "Erro de login.", icon: "⚠️", type: "favorite" });
+        } finally {
+            if (gateSubmitBtn) {
+                gateSubmitBtn.disabled = false;
+                gateSubmitBtn.textContent = gateAuthMode === 'register' ? '✨ CRIAR MINHA CONTA & ENTRAR' : '⚡ ACESSAR MEU ACERVO';
+            }
+        }
+    });
+}
+
+// Configuração Rápida
+
+
+
+
+if (openAuthModalBtn) {
+    openAuthModalBtn.addEventListener('click', () => {
+        if (currentUser && authModal) authModal.classList.remove('hidden');
+    });
+}
+
+if (closeAuthModalBtn) {
+    closeAuthModalBtn.addEventListener('click', () => {
+        if (authModal) authModal.classList.add('hidden');
+    });
+}
+
+// --- 6. CARREGAMENTO DOS DADOS NO SUPABASE ---
+async function loadAllUserDataFromSupabase() {
+    if (!currentUser) return;
+
+    try {
+        // 1. Perfil & Top 5
+        const profiles = await executeSupabaseQuery('profiles', 'SELECT', null, `id=eq.${currentUser.id}`);
+        if (profiles && profiles.length > 0) {
+            const profile = profiles[0];
+            challengeGoal = profile.challenge_goal || 50;
+            topFiveAlbums = profile.top_five && Array.isArray(profile.top_five) ? profile.top_five : [null, null, null, null, null];
+            while (topFiveAlbums.length < 5) topFiveAlbums.push(null);
+        }
+
+        // 2. Reviews
+        const reviews = await executeSupabaseQuery('reviews', 'SELECT', null, `user_id=eq.${currentUser.id}&order=created_at.desc`);
+        if (reviews && Array.isArray(reviews)) {
+            diaryReviews = reviews.map(r => ({
+                id: r.album_id,
+                dbId: r.id,
+                title: r.title,
+                artist: r.artist,
+                year: r.year,
+                cover: r.cover,
+                rating: parseFloat(r.rating),
+                favTrack: r.fav_track,
+                vibes: r.vibes || [],
+                reviewText: r.review_text,
+                date: r.date
+            }));
+        }
+
+        // 3. Want to Listen
+        const wants = await executeSupabaseQuery('want_to_listen', 'SELECT', null, `user_id=eq.${currentUser.id}&order=created_at.desc`);
+        if (wants && Array.isArray(wants)) {
+            wantToListen = wants.map(w => ({
+                id: w.album_id,
+                dbId: w.id,
+                title: w.title,
+                artist: w.artist,
+                year: w.year,
+                cover: w.cover
+            }));
+        }
+
+        // 4. Coleções
+        const cols = await executeSupabaseQuery('collections', 'SELECT', null, `user_id=eq.${currentUser.id}&order=created_at.desc`);
+        if (cols && Array.isArray(cols)) {
+            collections = cols.map(c => ({
+                id: c.id,
+                name: c.name,
+                description: c.description,
+                albums: c.albums || []
+            }));
+        }
+
+        renderAll();
+        handleRouting();
+
+    } catch (err) {
+        console.error("Erro ao puxar dados do banco:", err);
+    }
+}
+
+if (forceSyncCloudBtn) {
+    forceSyncCloudBtn.addEventListener('click', async () => {
+        showToast({ title: "Sincronizando...", message: "Consultando banco PostgreSQL...", icon: "🔄", type: "info" });
+        await loadAllUserDataFromSupabase();
+        showToast({ title: "Nuvem Atualizada!", message: "Acervo e diário atualizados.", icon: "✨", type: "success" });
+    });
+}
+
+// --- 7. AUDIO EXPERIENCE ---
+function togglePlayPreview(previewUrl, trackName, btnElement) {
+    if (!afterplayAudio) return;
+
+    if (currentPlayingPreviewUrl === previewUrl && !afterplayAudio.paused) {
+        pauseAudio();
+        return;
+    }
+
+    if (currentPlayingBtn) {
+        currentPlayingBtn.textContent = '▶';
+        currentPlayingBtn.classList.remove('playing');
+    }
+
+    currentPlayingPreviewUrl = previewUrl;
+    currentPlayingBtn = btnElement;
+
+    afterplayAudio.src = previewUrl;
+    afterplayAudio.play().then(() => {
+        if (btnElement) {
+            btnElement.textContent = '⏸';
+            btnElement.classList.add('playing');
+        }
+        if (studioPlayerBar) studioPlayerBar.classList.remove('hidden');
+        if (playerMasterPlayBtn) playerMasterPlayBtn.textContent = '⏸';
+        if (playerTrackTitle) playerTrackTitle.textContent = trackName;
+        if (vuEqualizer) vuEqualizer.classList.add('active');
+    }).catch(err => {
+        console.error("Erro na prévia de áudio:", err);
+        showToast({ title: "Áudio Indisponível", message: "Gravadora não disponibilizou prévia.", icon: "⚠️", type: "info" });
+    });
+}
+
+function pauseAudio() {
+    if (!afterplayAudio) return;
+    afterplayAudio.pause();
+    if (currentPlayingBtn) {
+        currentPlayingBtn.textContent = '▶';
+        currentPlayingBtn.classList.remove('playing');
+    }
+    if (playerMasterPlayBtn) playerMasterPlayBtn.textContent = '▶';
+    if (vuEqualizer) vuEqualizer.classList.remove('active');
+}
+
+function stopAudio() {
+    if (!afterplayAudio) return;
+    afterplayAudio.pause();
+    afterplayAudio.currentTime = 0;
+    if (currentPlayingBtn) {
+        currentPlayingBtn.textContent = '▶';
+        currentPlayingBtn.classList.remove('playing');
+    }
+    currentPlayingPreviewUrl = null;
+    currentPlayingBtn = null;
+    if (studioPlayerBar) studioPlayerBar.classList.add('hidden');
+    if (vuEqualizer) vuEqualizer.classList.remove('active');
+    if (playerProgressBar) playerProgressBar.style.width = '0%';
+    if (playerTimeDisplay) playerTimeDisplay.textContent = '0:00';
+}
+
+if (afterplayAudio) {
+    afterplayAudio.addEventListener('timeupdate', () => {
+        if (!afterplayAudio.duration) return;
+        const progress = (afterplayAudio.currentTime / afterplayAudio.duration) * 100;
+        if (playerProgressBar) playerProgressBar.style.width = `${progress}%`;
+        const currentSec = Math.floor(afterplayAudio.currentTime);
+        if (playerTimeDisplay) playerTimeDisplay.textContent = `0:${currentSec < 10 ? '0' : ''}${currentSec}`;
+    });
+
+    afterplayAudio.addEventListener('ended', () => {
+        pauseAudio();
+        if (playerProgressBar) playerProgressBar.style.width = '0%';
+        if (playerTimeDisplay) playerTimeDisplay.textContent = '0:00';
+    });
+}
+
+if (playerMasterPlayBtn) {
+    playerMasterPlayBtn.addEventListener('click', () => {
+        if (afterplayAudio.paused) {
+            afterplayAudio.play();
+            playerMasterPlayBtn.textContent = '⏸';
+            if (currentPlayingBtn) {
+                currentPlayingBtn.textContent = '⏸';
+                currentPlayingBtn.classList.add('playing');
+            }
+            if (vuEqualizer) vuEqualizer.classList.add('active');
+        } else {
+            pauseAudio();
+        }
+    });
+}
+
+// --- 8. LISTENING MOODS ---
+vibePickerChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+        const vibe = chip.dataset.vibe;
+        if (selectedVibes.includes(vibe)) {
+            selectedVibes = selectedVibes.filter(v => v !== vibe);
+            chip.classList.remove('selected');
+        } else {
+            selectedVibes.push(vibe);
+            chip.classList.add('selected');
+        }
+    });
+});
+
+function resetVibePicker(existingVibes = []) {
+    selectedVibes = [...existingVibes];
+    vibePickerChips.forEach(chip => {
+        if (selectedVibes.includes(chip.dataset.vibe)) {
+            chip.classList.add('selected');
+        } else {
+            chip.classList.remove('selected');
+        }
+    });
+}
+
+vibeFilterChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+        vibeFilterChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        currentVibeFilter = chip.dataset.vibe;
+        renderDiary();
+    });
+});
+
+// --- 9. SPA HASH ROUTER (BLINDADO E INDIVIDUAL) ---
+function handleRouting() {
+    let rawHash = window.location.hash.trim();
+    if (!rawHash || rawHash === '#' || rawHash === '#/') {
+        rawHash = '#/';
+    }
+    const cleanRoute = rawHash.split('?')[0];
+
+    const vHome = document.getElementById('viewHome');
+    const vSearch = document.getElementById('viewSearch');
+    const vWant = document.getElementById('viewWant');
+    const vCollections = document.getElementById('viewCollections');
+    const vProfile = document.getElementById('viewProfile');
+
+    const allViews = [vHome, vSearch, vWant, vCollections, vProfile];
+
+    // 1. Oculta absolutamente todas as seções
+    allViews.forEach(v => {
+        if (v) {
+            v.classList.add('hidden');
+            v.style.display = 'none'; // Garantia inline contra sobreposição de CSS
+        }
+    });
+
+    // 2. Destrava unicamente a view solicitada
+    let activeView = vHome;
+    if (cleanRoute === '#/busca') activeView = vSearch;
+    else if (cleanRoute === '#/want-to-listen') activeView = vWant;
+    else if (cleanRoute === '#/colecoes') activeView = vCollections;
+    else if (cleanRoute === '#/perfil') activeView = vProfile;
+    else activeView = vHome;
+
+    if (activeView) {
+        activeView.classList.remove('hidden');
+        activeView.style.display = 'block';
+    }
+
+    // 3. Atualiza os botões ativos no menu drawer
+    document.querySelectorAll('.drawer-link').forEach(link => {
+        const linkHref = link.getAttribute('href');
+        if (linkHref === cleanRoute || (cleanRoute === '#/' && (linkHref === '#/' || linkHref === '#/diario'))) {
+            link.classList.add('active-route');
+        } else {
+            link.classList.remove('active-route');
+        }
+    });
+
+    // Fecha o menu lateral
+    if (sideDrawer) sideDrawer.classList.remove('open');
+    if (drawerOverlay) drawerOverlay.classList.add('hidden');
+
+    window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+window.addEventListener('hashchange', handleRouting);
+
 function openDrawer() {
     if (sideDrawer && drawerOverlay) {
         sideDrawer.classList.add('open');
@@ -258,80 +959,7 @@ if (menuToggleBtn) menuToggleBtn.addEventListener('click', openDrawer);
 if (closeDrawerBtn) closeDrawerBtn.addEventListener('click', closeDrawer);
 if (drawerOverlay) drawerOverlay.addEventListener('click', closeDrawer);
 
-// --- 1. SPA ROUTER ENGINE ---
-function handleRouting() {
-    let hash = window.location.hash || '#/';
-    if (!views[hash]) hash = '#/';
-
-    Object.values(views).forEach(view => {
-        if (view) view.classList.add('hidden');
-    });
-
-    if (views[hash]) views[hash].classList.remove('hidden');
-
-    drawerLinks.forEach(link => {
-        const routeAttr = link.getAttribute('href');
-        if (routeAttr === hash || (hash === '#/diario' && routeAttr === '#/')) {
-            link.classList.add('active-route');
-        } else {
-            link.classList.remove('active-route');
-        }
-    });
-
-    if (hash === '#/perfil') {
-        renderProfileStats();
-    }
-
-    if (hash === '#/busca' && dedicatedSearchInput) {
-        setTimeout(() => dedicatedSearchInput.focus(), 150);
-    }
-
-    if (hash !== '#/colecoes' && activeOpenCollectionId !== null) {
-        closeCollectionDetail();
-    }
-
-    closeDrawer();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-window.addEventListener('hashchange', handleRouting);
-
-window.addEventListener('keydown', (e) => {
-    if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-        e.preventDefault();
-        window.location.hash = '#/busca';
-    }
-});
-
-// --- 2. SISTEMA DE TOASTS VISUAIS ---
-function showToast({ title, message, icon = '🎵', type = 'success', spin = false, duration = 3800 }) {
-    if (!toastContainer) return;
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-
-    toast.innerHTML = `
-        <div class="toast-icon ${spin ? 'spin-icon' : ''}">${icon}</div>
-        <div class="toast-body">
-            <span class="toast-title">${title}</span>
-            <span class="toast-message">${message}</span>
-        </div>
-        <button class="toast-close" title="Fechar">✕</button>
-    `;
-
-    toastContainer.appendChild(toast);
-    requestAnimationFrame(() => toast.classList.add('show'));
-
-    const closeToast = () => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 350);
-    };
-
-    const closeBtn = toast.querySelector('.toast-close');
-    if (closeBtn) closeBtn.addEventListener('click', closeToast);
-    setTimeout(closeToast, duration);
-}
-
-// --- 3. COMUNICAÇÃO JSONP (ITUNES & DEEZER) ---
+// --- 10. COMUNICAÇÃO JSONP (ITUNES & DEEZER) ---
 function fetchFromiTunes(url) {
     return new Promise((resolve, reject) => {
         const callbackName = 'afterplay_cb_' + Math.round(100000 * Math.random());
@@ -355,7 +983,6 @@ function fetchArtistPhotoFromDeezer(artistName) {
     return new Promise((resolve) => {
         const callbackName = 'deezer_cb_' + Math.round(100000 * Math.random());
         const script = document.createElement('script');
-        
         const timer = setTimeout(() => {
             delete window[callbackName];
             if (script.parentNode) script.parentNode.removeChild(script);
@@ -386,7 +1013,7 @@ function fetchArtistPhotoFromDeezer(artistName) {
     });
 }
 
-// --- 4. SELETOR DE MEIA ESTRELA (0.5 a 5.0) ---
+// --- 11. SELETOR DE ESTRELAS ---
 function buildStarPicker() {
     if (!interactiveStarPicker) return;
     interactiveStarPicker.innerHTML = '';
@@ -454,12 +1081,12 @@ function updateStarFills(targetScore) {
     });
 }
 
-// --- 5. BUSCA NA PÁGINA DEDICADA & DISCOGRAFIAS ---
+// --- 12. BUSCA DEDICADA & DISCOGRAFIAS ---
 async function searchAlbums() {
     if (!dedicatedSearchInput) return;
     const query = dedicatedSearchInput.value.trim();
     if (!query) {
-        showToast({ title: "Agulha fora do disco", message: "Digite um álbum ou artista para pesquisar.", icon: "🎙️", type: "info" });
+        showToast({ title: "Agulha Fora do Disco", message: "Digite um termo para pesquisar.", icon: "🎙️", type: "info" });
         return;
     }
 
@@ -497,8 +1124,8 @@ async function searchAlbums() {
                             <span>🎙️</span>
                         </div>
                         <div class="artist-info">
-                            <div class="artist-name-title" title="${artist.artistName}">${artist.artistName}</div>
-                            <span class="artist-genre-tag">${artist.primaryGenreName || 'Música'}</span>
+                            <div class="artist-name-title" title="${sanitize(artist.artistName)}">${sanitize(artist.artistName)}</div>
+                            <span class="artist-genre-tag">${sanitize(artist.primaryGenreName) || 'Música'}</span>
                             <button class="btn-open-disco">Ver Discografia ›</button>
                         </div>
                     `;
@@ -507,7 +1134,7 @@ async function searchAlbums() {
                     const photoUrl = await fetchArtistPhotoFromDeezer(artist.artistName);
                     const avatarContainer = document.getElementById(`avatar-${artist.artistId}`);
                     if (avatarContainer && photoUrl) {
-                        avatarContainer.innerHTML = `<img src="${photoUrl}" alt="${artist.artistName}" onerror="this.onerror=null; this.parentElement.innerHTML='🎙️';">`;
+                        avatarContainer.innerHTML = `<img src="${photoUrl}" alt="${sanitize(artist.artistName)}" onerror="this.onerror=null; this.parentElement.innerHTML='🎙️';">`;
                     }
                 });
             }
@@ -518,7 +1145,7 @@ async function searchAlbums() {
         if (!albumsData.results || albumsData.results.length === 0) {
             if (!artistsData.results || artistsData.results.length === 0) {
                 if (searchResultsTitle) searchResultsTitle.textContent = `NENHUM RESULTADO`;
-                if (searchResultsGrid) searchResultsGrid.innerHTML = `<p style="color: #9E958E;">Nenhum disco ou artista localizado com esse termo.</p>`;
+                if (searchResultsGrid) searchResultsGrid.innerHTML = `<p style="color: #9E958E;">Nenhum disco ou artista localizado.</p>`;
                 return;
             }
             if (searchResultsGrid) searchResultsGrid.innerHTML = `<p style="color: #9E958E;">Nenhum álbum avulso. Explore a discografia do artista acima!</p>`;
@@ -546,14 +1173,14 @@ function renderAlbumCards(albumsList) {
         card.className = 'search-album-card';
         card.innerHTML = `
             <div>
-                <img src="${highResCover}" alt="${album.collectionName}">
-                <div class="search-album-title" title="${album.collectionName}">${album.collectionName}</div>
-                <div class="search-album-artist">${album.artistName} • ${releaseYear}</div>
+                <img src="${highResCover}" alt="${sanitize(album.collectionName)}">
+                <div class="search-album-title" title="${sanitize(album.collectionName)}">${sanitize(album.collectionName)}</div>
+                <div class="search-album-artist">${sanitize(album.artistName)} • ${releaseYear}</div>
             </div>
             <div class="card-actions">
                 <button class="btn-evaluate" onclick="openAlbumModal(${album.collectionId})">★ Avaliar</button>
-                <button class="btn-want" title="Salvar no Want to Listen" onclick="addToWantList(${album.collectionId})">🕒</button>
-                <button class="btn-want" title="Adicionar à Coleção" onclick="openAddToCollectionModal(${album.collectionId})">📁</button>
+                <button class="btn-want" title="Salvar na fila" onclick="addToWantList(${album.collectionId})">🕒</button>
+                <button class="btn-want" title="Adicionar à coleção" onclick="openAddToCollectionModal(${album.collectionId})">📁</button>
             </div>
         `;
         searchResultsGrid.appendChild(card);
@@ -638,147 +1265,50 @@ if (dedicatedSearchInput) {
     });
 }
 
-// --- 6. AUDIO EXPERIENCE & MOTOR DE REPRODUÇÃO ANALÓGICA ---
-function togglePlayPreview(previewUrl, trackName, btnElement) {
-    if (!afterplayAudio) return;
+// --- INTEGRAÇÃO DA BUSCA RÁPIDA SUPERIOR DO CABEÇALHO ---
+const topSearchForm = document.getElementById('topSearchForm');
+const topSearchInput = document.getElementById('topSearchInput');
 
-    if (currentPlayingPreviewUrl === previewUrl && !afterplayAudio.paused) {
-        pauseAudio();
-        return;
-    }
-
-    if (currentPlayingBtn) {
-        currentPlayingBtn.textContent = '▶';
-        currentPlayingBtn.classList.remove('playing');
-    }
-
-    currentPlayingPreviewUrl = previewUrl;
-    currentPlayingBtn = btnElement;
-
-    afterplayAudio.src = previewUrl;
-    afterplayAudio.play().then(() => {
-        if (btnElement) {
-            btnElement.textContent = '⏸';
-            btnElement.classList.add('playing');
-        }
-        if (studioPlayerBar) studioPlayerBar.classList.remove('hidden');
-        if (playerMasterPlayBtn) playerMasterPlayBtn.textContent = '⏸';
-        if (playerTrackTitle) playerTrackTitle.textContent = trackName;
-        if (vuEqualizer) vuEqualizer.classList.add('active');
-    }).catch(err => {
-        console.error("Erro na reprodução de preview:", err);
-        showToast({ title: "Áudio Indisponível", message: "Não foi possível carregar a prévia desta faixa.", icon: "⚠️", type: "info" });
-    });
-}
-
-function pauseAudio() {
-    if (!afterplayAudio) return;
-    afterplayAudio.pause();
-    if (currentPlayingBtn) {
-        currentPlayingBtn.textContent = '▶';
-        currentPlayingBtn.classList.remove('playing');
-    }
-    if (playerMasterPlayBtn) playerMasterPlayBtn.textContent = '▶';
-    if (vuEqualizer) vuEqualizer.classList.remove('active');
-}
-
-function stopAudio() {
-    if (!afterplayAudio) return;
-    afterplayAudio.pause();
-    afterplayAudio.currentTime = 0;
-    if (currentPlayingBtn) {
-        currentPlayingBtn.textContent = '▶';
-        currentPlayingBtn.classList.remove('playing');
-    }
-    currentPlayingPreviewUrl = null;
-    currentPlayingBtn = null;
-    if (studioPlayerBar) studioPlayerBar.classList.add('hidden');
-    if (vuEqualizer) vuEqualizer.classList.remove('active');
-    if (playerProgressBar) playerProgressBar.style.width = '0%';
-    if (playerTimeDisplay) playerTimeDisplay.textContent = '0:00';
-}
-
-if (afterplayAudio) {
-    afterplayAudio.addEventListener('timeupdate', () => {
-        if (!afterplayAudio.duration) return;
-        const progress = (afterplayAudio.currentTime / afterplayAudio.duration) * 100;
-        if (playerProgressBar) playerProgressBar.style.width = `${progress}%`;
-
-        const currentSec = Math.floor(afterplayAudio.currentTime);
-        if (playerTimeDisplay) playerTimeDisplay.textContent = `0:${currentSec < 10 ? '0' : ''}${currentSec}`;
-    });
-
-    afterplayAudio.addEventListener('ended', () => {
-        pauseAudio();
-        if (playerProgressBar) playerProgressBar.style.width = '0%';
-        if (playerTimeDisplay) playerTimeDisplay.textContent = '0:00';
-    });
-}
-
-if (playerMasterPlayBtn) {
-    playerMasterPlayBtn.addEventListener('click', () => {
-        if (afterplayAudio.paused) {
-            afterplayAudio.play();
-            playerMasterPlayBtn.textContent = '⏸';
-            if (currentPlayingBtn) {
-                currentPlayingBtn.textContent = '⏸';
-                currentPlayingBtn.classList.add('playing');
+if (topSearchForm && topSearchInput) {
+    topSearchForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const query = topSearchInput.value.trim();
+        if (query) {
+            if (dedicatedSearchInput) {
+                dedicatedSearchInput.value = query;
             }
-            if (vuEqualizer) vuEqualizer.classList.add('active');
-        } else {
-            pauseAudio();
+            if (window.location.hash !== '#/busca') {
+                window.location.hash = '#/busca';
+            }
+            searchAlbums();
+            topSearchInput.blur();
+        }
+    });
+
+    // Atalho global: pressionar "/" fora de campos de texto foca a barra de pesquisa
+    window.addEventListener('keydown', (e) => {
+        if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            topSearchInput.focus();
+            topSearchInput.select();
         }
     });
 }
 
-// --- 7. CONTROLE DE VIBES (LISTENING MOODS) ---
-vibePickerChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-        const vibe = chip.dataset.vibe;
-        if (selectedVibes.includes(vibe)) {
-            selectedVibes = selectedVibes.filter(v => v !== vibe);
-            chip.classList.remove('selected');
-        } else {
-            selectedVibes.push(vibe);
-            chip.classList.add('selected');
-        }
-    });
-});
-
-function resetVibePicker(existingVibes = []) {
-    selectedVibes = [...existingVibes];
-    vibePickerChips.forEach(chip => {
-        if (selectedVibes.includes(chip.dataset.vibe)) {
-            chip.classList.add('selected');
-        } else {
-            chip.classList.remove('selected');
-        }
-    });
-}
-
-vibeFilterChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-        vibeFilterChips.forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        currentVibeFilter = chip.dataset.vibe;
-        renderDiary();
-    });
-});
-
-// --- 8. MODAL DE AVALIAÇÃO / EDIÇÃO FAIXA A FAIXA ---
-async function openAlbumModal(collectionId, editIndex = null) {
+// --- 13. MODAL DE AVALIAÇÃO FAIXA A FAIXA ---
+async function openAlbumModal(collectionId, editDbId = null) {
     stopAudio();
-    editingReviewIndex = editIndex;
+    editingReviewId = editDbId;
     if (reviewModal) reviewModal.classList.remove('hidden');
     if (modalTracklist) modalTracklist.innerHTML = `<p style="color: #9E958E; padding: 10px;">Carregando lista de faixas do álbum...</p>`;
     if (calculatedAvgBadge) calculatedAvgBadge.textContent = 'Média das Faixas: --';
 
-    if (editingReviewIndex !== null) {
+    if (editingReviewId !== null) {
         if (modalModeTag) modalModeTag.textContent = 'STUDIO LOGGING CONSOLE // RE-MIXANDO REVIEW';
-        if (saveReviewBtn) saveReviewBtn.textContent = '💾 ATUALIZAR REVIEW';
+        if (saveReviewBtn) saveReviewBtn.textContent = '💾 ATUALIZAR REVIEW NO BANCO';
     } else {
         if (modalModeTag) modalModeTag.textContent = 'STUDIO LOGGING CONSOLE // NOVA AVALIAÇÃO';
-        if (saveReviewBtn) saveReviewBtn.textContent = '💾 SALVAR AVALIAÇÃO NO DIÁRIO';
+        if (saveReviewBtn) saveReviewBtn.textContent = '💾 SALVAR AVALIAÇÃO NO BANCO';
     }
 
     try {
@@ -803,12 +1333,14 @@ async function openAlbumModal(collectionId, editIndex = null) {
         if (modalAlbumTitle) modalAlbumTitle.textContent = currentAlbumInModal.title;
         if (modalArtistYear) modalArtistYear.textContent = `${currentAlbumInModal.artist} • ${currentAlbumInModal.year}`;
 
-        if (editingReviewIndex !== null) {
-            const existing = diaryReviews[editingReviewIndex];
-            if (reviewTextInput) reviewTextInput.value = existing.reviewText;
-            selectedFavTrack = existing.favTrack;
-            setVisualScore(existing.rating);
-            resetVibePicker(existing.vibes || []);
+        if (editingReviewId !== null) {
+            const existing = diaryReviews.find(r => r.dbId === editingReviewId);
+            if (existing) {
+                if (reviewTextInput) reviewTextInput.value = existing.reviewText;
+                selectedFavTrack = existing.favTrack;
+                setVisualScore(existing.rating);
+                resetVibePicker(existing.vibes || []);
+            }
         } else {
             if (reviewTextInput) reviewTextInput.value = '';
             selectedFavTrack = 'Nenhuma selecionada';
@@ -898,11 +1430,6 @@ async function openAlbumModal(collectionId, editIndex = null) {
     }
 }
 
-function editDiaryReview(index) {
-    const item = diaryReviews[index];
-    openAlbumModal(item.id, index);
-}
-
 function selectFavoriteTrack(btnElement, trackName) {
     document.querySelectorAll('.fav-track-btn').forEach(btn => btn.classList.remove('selected'));
     btnElement.classList.add('selected');
@@ -910,7 +1437,7 @@ function selectFavoriteTrack(btnElement, trackName) {
 
     showToast({
         title: "Faixa do Coração",
-        message: `"${trackName}" marcada como ponto alto do disco!`,
+        message: `"${trackName}" marcada como destaque.`,
         icon: "🎷",
         type: "favorite",
         duration: 2500
@@ -940,60 +1467,350 @@ function recalculateTrackAverage() {
 }
 
 if (saveReviewBtn) {
-    saveReviewBtn.addEventListener('click', () => {
-        if (!currentAlbumInModal) return;
+    saveReviewBtn.addEventListener('click', async () => {
+        if (!currentAlbumInModal || !currentUser) return;
+
+        saveReviewBtn.disabled = true;
+        saveReviewBtn.textContent = "SALVANDO NO SUPABASE...";
 
         const reviewText = (reviewTextInput && reviewTextInput.value.trim()) || "Álbum registrado no Afterplay.";
+        const dateStr = new Date().toLocaleDateString('pt-BR');
 
-        if (editingReviewIndex !== null) {
-            diaryReviews[editingReviewIndex] = {
-                ...diaryReviews[editingReviewIndex],
-                rating: selectedVisualScore,
-                favTrack: selectedFavTrack,
-                vibes: [...selectedVibes],
-                reviewText: reviewText
-            };
-            showToast({ title: "Review Remasterizada", message: `"${currentAlbumInModal.title}" foi atualizado!`, icon: "🎛️", type: "success" });
-        } else {
-            const newReview = {
-                id: currentAlbumInModal.id,
-                title: currentAlbumInModal.title,
-                artist: currentAlbumInModal.artist,
-                year: currentAlbumInModal.year,
-                cover: currentAlbumInModal.cover,
-                rating: selectedVisualScore,
-                favTrack: selectedFavTrack,
-                vibes: [...selectedVibes],
-                reviewText: reviewText,
-                date: new Date().toLocaleDateString('pt-BR')
-            };
-            diaryReviews.unshift(newReview);
-            wantToListen = wantToListen.filter(item => item.id !== currentAlbumInModal.id);
+        try {
+            if (editingReviewId !== null) {
+                await executeSupabaseQuery('reviews', 'UPDATE', {
+                    rating: selectedVisualScore,
+                    fav_track: selectedFavTrack,
+                    vibes: selectedVibes,
+                    review_text: reviewText
+                }, `id=eq.${editingReviewId}&user_id=eq.${currentUser.id}`);
 
-            showToast({
-                title: "Disco Catalogado!",
-                message: `"${currentAlbumInModal.title}" entrou no seu diário com nota ${selectedVisualScore.toFixed(1)} ★.`,
-                icon: "💽",
-                spin: true,
-                type: "success"
-            });
+                showToast({ title: "Review Atualizada", message: "Alterações gravadas no Supabase.", icon: "🎛️", type: "success" });
+            } else {
+                await executeSupabaseQuery('reviews', 'INSERT', {
+                    user_id: currentUser.id,
+                    album_id: currentAlbumInModal.id,
+                    title: currentAlbumInModal.title,
+                    artist: currentAlbumInModal.artist,
+                    year: currentAlbumInModal.year,
+                    cover: currentAlbumInModal.cover,
+                    rating: selectedVisualScore,
+                    fav_track: selectedFavTrack,
+                    vibes: selectedVibes,
+                    review_text: reviewText,
+                    date: dateStr
+                });
+
+                await executeSupabaseQuery('want_to_listen', 'DELETE', null, `user_id=eq.${currentUser.id}&album_id=eq.${currentAlbumInModal.id}`);
+
+                showToast({
+                    title: "Disco Catalogado!",
+                    message: `Gravado no banco com nota ${selectedVisualScore.toFixed(1)} ★.`,
+                    icon: "💽",
+                    type: "success"
+                });
+            }
+
+            await loadAllUserDataFromSupabase();
+            stopAudio();
+            if (reviewModal) reviewModal.classList.add('hidden');
+            editingReviewId = null;
+
+        } catch (err) {
+            console.error(err);
+            showToast({ title: "Erro ao Salvar", message: err.message, icon: "⚠️", type: "favorite" });
+        } finally {
+            saveReviewBtn.disabled = false;
         }
-
-        saveAllToLocalStorage();
-        renderAll();
-        stopAudio();
-        if (reviewModal) reviewModal.classList.add('hidden');
-        editingReviewIndex = null;
     });
 }
 
-// --- 9. TOP 5 DA VIDA (LOCALIZADO NO PERFIL) ---
+async function deleteDiaryReview(dbId, title) {
+    if (!currentUser) return;
+    if (confirm(`Tem certeza que deseja retirar "${title}" do seu banco de dados?`)) {
+        try {
+            await executeSupabaseQuery('reviews', 'DELETE', null, `id=eq.${dbId}&user_id=eq.${currentUser.id}`);
+            showToast({ title: "Review Apagada", message: `"${title}" foi removido do banco.`, icon: "🗑️", type: "favorite" });
+            await loadAllUserDataFromSupabase();
+        } catch (err) {
+            console.error(err);
+        }
+    }
+}
+
+// --- 14. WANT TO LISTEN ---
+async function addToWantList(collectionId) {
+    if (!currentUser) return;
+
+    let found = lastSearchResults.find(a => a.collectionId === collectionId);
+    if (!found) {
+        const inDiary = diaryReviews.find(a => a.id === collectionId);
+        if (inDiary) found = { collectionId: inDiary.id, collectionName: inDiary.title, artistName: inDiary.artist, releaseDate: inDiary.year, artworkUrl100: inDiary.cover };
+    }
+    if (!found) return;
+
+    if (wantToListen.some(item => item.id === collectionId)) {
+        showToast({ title: "Já na Fila", message: `"${found.collectionName}" já está cadastrado!`, icon: "🕒", type: "info" });
+        return;
+    }
+
+    try {
+        await executeSupabaseQuery('want_to_listen', 'INSERT', {
+            user_id: currentUser.id,
+            album_id: found.collectionId,
+            title: found.collectionName,
+            artist: found.artistName,
+            year: found.releaseDate ? found.releaseDate.substring(0, 4) : 'N/A',
+            cover: found.artworkUrl100.replace('100x100bb', '600x600bb')
+        });
+
+        showToast({ title: "Na Fila da Vitrola", message: `"${found.collectionName}" salvo na nuvem!`, icon: "📻", type: "info" });
+        await loadAllUserDataFromSupabase();
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+// --- 15. COLEÇÕES ---
+if (openCreateCollectionBtn) {
+    openCreateCollectionBtn.addEventListener('click', () => {
+        if (newCollectionNameInput) newCollectionNameInput.value = '';
+        if (newCollectionDescInput) newCollectionDescInput.value = '';
+        if (createCollectionModal) createCollectionModal.classList.remove('hidden');
+    });
+}
+
+if (closeCreateCollectionBtn) {
+    closeCreateCollectionBtn.addEventListener('click', () => {
+        if (createCollectionModal) createCollectionModal.classList.add('hidden');
+    });
+}
+
+if (submitCreateCollectionBtn) {
+    submitCreateCollectionBtn.addEventListener('click', async () => {
+        if (!currentUser) return;
+        const name = newCollectionNameInput ? newCollectionNameInput.value.trim() : '';
+        const desc = newCollectionDescInput ? newCollectionDescInput.value.trim() : '';
+
+        if (!name) {
+            showToast({ title: "Nome Ausente", message: "Informe um título para a coleção.", icon: "⚠️", type: "info" });
+            return;
+        }
+
+        try {
+            await executeSupabaseQuery('collections', 'INSERT', {
+                user_id: currentUser.id,
+                name: name,
+                description: desc || "Coleção temática.",
+                albums: []
+            });
+
+            showToast({ title: "Pasta Criada!", message: `Coleção "${name}" gravada no banco.`, icon: "📁", type: "success" });
+            if (createCollectionModal) createCollectionModal.classList.add('hidden');
+            await loadAllUserDataFromSupabase();
+        } catch (err) {
+            console.error(err);
+        }
+    });
+}
+
+async function deleteCollection(collectionId, event) {
+    if (event) event.stopPropagation();
+    if (!currentUser) return;
+
+    if (confirm("Deseja apagar esta pasta do banco? As reviews do diário não serão afetadas.")) {
+        try {
+            await executeSupabaseQuery('collections', 'DELETE', null, `id=eq.${collectionId}&user_id=eq.${currentUser.id}`);
+            showToast({ title: "Pasta Removida", message: "Coleção excluída do banco.", icon: "🗑️", type: "info" });
+            if (activeOpenCollectionId === collectionId) closeCollectionDetail();
+            await loadAllUserDataFromSupabase();
+        } catch (err) {
+            console.error(err);
+        }
+    }
+}
+
+function openAddToCollectionModal(collectionId) {
+    let found = lastSearchResults.find(a => a.collectionId === collectionId);
+    if (!found) {
+        const inDiary = diaryReviews.find(a => a.id === collectionId);
+        if (inDiary) found = { collectionId: inDiary.id, collectionName: inDiary.title, artistName: inDiary.artist, releaseDate: inDiary.year, artworkUrl100: inDiary.cover };
+    }
+    if (!found && currentAlbumInModal && currentAlbumInModal.id === collectionId) {
+        found = { collectionId: currentAlbumInModal.id, collectionName: currentAlbumInModal.title, artistName: currentAlbumInModal.artist, releaseDate: currentAlbumInModal.year, artworkUrl100: currentAlbumInModal.cover };
+    }
+    if (!found) return;
+
+    albumToAddToCollection = {
+        id: found.collectionId,
+        title: found.collectionName,
+        artist: found.artistName,
+        year: found.releaseDate ? String(found.releaseDate).substring(0, 4) : 'N/A',
+        cover: found.artworkUrl100.replace('100x100bb', '600x600bb')
+    };
+
+    if (targetAlbumNameDisplay) targetAlbumNameDisplay.textContent = `🎵 ${sanitize(albumToAddToCollection.title)} — ${sanitize(albumToAddToCollection.artist)}`;
+    if (!collectionChoicesList) return;
+    collectionChoicesList.innerHTML = '';
+
+    if (collections.length === 0) {
+        collectionChoicesList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Você ainda não tem pastas criadas. Acesse a aba Coleções!</p>`;
+    } else {
+        collections.forEach(col => {
+            const btn = document.createElement('button');
+            btn.className = 'choice-item-btn';
+            const alreadyIn = col.albums.some(a => a.id === albumToAddToCollection.id);
+
+            btn.innerHTML = `
+                <span>📁 ${sanitize(col.name)}</span>
+                <span style="font-size: 0.75rem; color: ${alreadyIn ? '#10B981' : 'var(--amber-glow)'};">
+                    ${alreadyIn ? '✓ Já incluído' : '+ Adicionar'}
+                </span>
+            `;
+
+            btn.onclick = async () => {
+                if (alreadyIn) {
+                    showToast({ title: "Já Arquivado", message: "Disco já consta nesta coleção.", icon: "📁", type: "info" });
+                    return;
+                }
+                const updatedAlbums = [...col.albums, albumToAddToCollection];
+
+                try {
+                    await executeSupabaseQuery('collections', 'UPDATE', { albums: updatedAlbums }, `id=eq.${col.id}&user_id=eq.${currentUser.id}`);
+                    showToast({ title: "Vinil Arquivado!", message: `Adicionado à coleção "${col.name}".`, icon: "💽", type: "success" });
+                    if (addToCollectionModal) addToCollectionModal.classList.add('hidden');
+                    await loadAllUserDataFromSupabase();
+                } catch (err) {
+                    console.error(err);
+                }
+            };
+
+            collectionChoicesList.appendChild(btn);
+        });
+    }
+
+    if (addToCollectionModal) addToCollectionModal.classList.remove('hidden');
+}
+
+if (closeAddToCollectionBtn) {
+    closeAddToCollectionBtn.addEventListener('click', () => {
+        if (addToCollectionModal) addToCollectionModal.classList.add('hidden');
+    });
+}
+
+if (modalAddCollectionBtn) {
+    modalAddCollectionBtn.addEventListener('click', () => {
+        if (currentAlbumInModal) openAddToCollectionModal(currentAlbumInModal.id);
+    });
+}
+
+if (backToCollectionsBtn) {
+    backToCollectionsBtn.addEventListener('click', closeCollectionDetail);
+}
+
+function closeCollectionDetail() {
+    activeOpenCollectionId = null;
+    if (collectionDetailContainer) collectionDetailContainer.classList.add('hidden');
+    if (collectionsMainContainer) collectionsMainContainer.classList.remove('hidden');
+    renderCollections();
+}
+
+function openCollectionDetail(collectionId) {
+    const col = collections.find(c => c.id === collectionId);
+    if (!col) return;
+
+    activeOpenCollectionId = collectionId;
+    if (collectionsMainContainer) collectionsMainContainer.classList.add('hidden');
+    if (collectionDetailContainer) collectionDetailContainer.classList.remove('hidden');
+
+    if (collectionDetailTitle) collectionDetailTitle.textContent = col.name;
+    if (collectionDetailDesc) collectionDetailDesc.textContent = col.description;
+    if (collectionDetailCount) collectionDetailCount.textContent = col.albums.length;
+
+    if (collectionDetailAvg) {
+        const ratedAlbums = col.albums.map(a => {
+            const foundInDiary = diaryReviews.find(r => r.id === a.id);
+            return foundInDiary ? foundInDiary.rating : null;
+        }).filter(r => r !== null);
+
+        if (ratedAlbums.length > 0) {
+            const avg = (ratedAlbums.reduce((sum, r) => sum + r, 0) / ratedAlbums.length).toFixed(1);
+            collectionDetailAvg.textContent = `${avg} ★`;
+        } else {
+            collectionDetailAvg.textContent = `-- ★`;
+        }
+    }
+
+    renderCollectionDetailAlbums(col);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderCollectionDetailAlbums(col) {
+    if (!collectionDetailGrid) return;
+    collectionDetailGrid.innerHTML = '';
+
+    if (col.albums.length === 0) {
+        collectionDetailGrid.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px;">
+                <p style="color: #9E958E; font-size: 0.95rem;">Esta pasta não possui discos arquivados.</p>
+                <a href="#/busca" class="btn-open-disco" style="display: inline-block; margin-top: 12px; text-decoration: none; padding: 8px 16px;">
+                    🔍 Explorar Acervo e Adicionar Álbuns
+                </a>
+            </div>
+        `;
+        return;
+    }
+
+    col.albums.forEach(album => {
+        const foundInDiary = diaryReviews.find(r => r.id === album.id);
+        const ratingBadge = foundInDiary 
+            ? `<span class="numeric-score" style="font-size: 0.75rem;">${foundInDiary.rating.toFixed(1)} ★</span>` 
+            : `<span style="font-size: 0.72rem; color: var(--text-muted);">Não avaliado</span>`;
+
+        const card = document.createElement('div');
+        card.className = 'search-album-card';
+        card.innerHTML = `
+            <div>
+                <img src="${album.cover}" alt="${sanitize(album.title)}">
+                <div class="search-album-title" title="${sanitize(album.title)}">${sanitize(album.title)}</div>
+                <div class="search-album-artist">${sanitize(album.artist)} • ${album.year}</div>
+                <div style="margin-top: 6px;">${ratingBadge}</div>
+            </div>
+            <div class="card-actions" style="margin-top: 12px;">
+                <button class="btn-evaluate" onclick="openAlbumModal(${album.id})">★ Ver / Avaliar</button>
+                <button class="btn-remove-from-col" title="Retirar da pasta" onclick="removeAlbumFromCollection('${col.id}', ${album.id}, event)">🗑️ Tirar</button>
+            </div>
+        `;
+        collectionDetailGrid.appendChild(card);
+    });
+}
+
+async function removeAlbumFromCollection(collectionId, albumId, event) {
+    if (event) event.stopPropagation();
+    if (!currentUser) return;
+
+    const col = collections.find(c => c.id === collectionId);
+    if (!col) return;
+
+    const updated = col.albums.filter(a => a.id !== albumId);
+
+    try {
+        await executeSupabaseQuery('collections', 'UPDATE', { albums: updated }, `id=eq.${col.id}&user_id=eq.${currentUser.id}`);
+        showToast({ title: "Disco Retirado", message: `Álbum removido de "${col.name}".`, icon: "📦", type: "info" });
+        await loadAllUserDataFromSupabase();
+        if (activeOpenCollectionId === collectionId) openCollectionDetail(collectionId);
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+// --- 16. TOP 5 DA VIDA ---
 if (pinTopFiveBtn) {
-    pinTopFiveBtn.addEventListener('click', () => {
-        if (!currentAlbumInModal) return;
+    pinTopFiveBtn.addEventListener('click', async () => {
+        if (!currentAlbumInModal || !currentUser) return;
 
         if (topFiveAlbums.some(a => a && a.id === currentAlbumInModal.id)) {
-            showToast({ title: "Já em Alta Rotação", message: `"${currentAlbumInModal.title}" já está no seu Top 5!`, icon: "🔥", type: "info" });
+            showToast({ title: "Já no Top 5", message: `"${currentAlbumInModal.title}" já consta no mural!`, icon: "🔥", type: "info" });
             return;
         }
 
@@ -1001,7 +1818,7 @@ if (pinTopFiveBtn) {
         if (emptyIndex !== -1) {
             topFiveAlbums[emptyIndex] = { ...currentAlbumInModal };
         } else {
-            const slotChoice = prompt('Seu Top 5 está cheio! Qual posição (de 1 a 5) você quer substituir por este álbum?');
+            const slotChoice = prompt('Mural completo! Qual posição (1 a 5) deseja substituir?');
             const idx = parseInt(slotChoice) - 1;
             if (idx >= 0 && idx < 5) {
                 topFiveAlbums[idx] = { ...currentAlbumInModal };
@@ -1010,19 +1827,29 @@ if (pinTopFiveBtn) {
             }
         }
 
-        saveAllToLocalStorage();
-        renderTopFive();
-        showToast({ title: "Hall da Fama Musical", message: `"${currentAlbumInModal.title}" fixado no Top 5!`, icon: "✨", type: "success" });
+        try {
+            await executeSupabaseQuery('profiles', 'UPDATE', { top_five: topFiveAlbums }, `id=eq.${currentUser.id}`);
+            showToast({ title: "Top 5 Atualizado", message: `"${currentAlbumInModal.title}" fixado!`, icon: "✨", type: "success" });
+            renderTopFive();
+        } catch (err) {
+            console.error(err);
+        }
     });
 }
 
-function removeTopFiveSlot(index, event) {
-    event.stopPropagation();
-    const removedTitle = topFiveAlbums[index] ? topFiveAlbums[index].title : "Álbum";
+async function removeTopFiveSlot(index, event) {
+    if (event) event.stopPropagation();
+    if (!currentUser) return;
+
     topFiveAlbums[index] = null;
-    saveAllToLocalStorage();
-    renderTopFive();
-    showToast({ title: "Vinil Guardado", message: `"${removedTitle}" retirado do Top 5.`, icon: "📦", type: "info" });
+
+    try {
+        await executeSupabaseQuery('profiles', 'UPDATE', { top_five: topFiveAlbums }, `id=eq.${currentUser.id}`);
+        showToast({ title: "Mural Atualizado", message: "Slot liberado no Top 5.", icon: "📦", type: "info" });
+        renderTopFive();
+    } catch (err) {
+        console.error(err);
+    }
 }
 
 function renderTopFive() {
@@ -1039,10 +1866,10 @@ function renderTopFive() {
                 <span class="slot-number">${slotNum}</span>
                 <button class="remove-slot-btn" title="Remover do Top 5" onclick="removeTopFiveSlot(${index}, event)">✕</button>
                 <div class="vinyl-disc"></div>
-                <img src="${album.cover}" alt="${album.title}" class="album-cover">
+                <img src="${album.cover}" alt="${sanitize(album.title)}" class="album-cover">
                 <div class="slot-info">
-                    <strong>${album.title}</strong>
-                    <span>${album.artist} (${album.year})</span>
+                    <strong>${sanitize(album.title)}</strong>
+                    <span>${sanitize(album.artist)} (${album.year})</span>
                 </div>
             `;
         } else {
@@ -1057,17 +1884,401 @@ function renderTopFive() {
     });
 }
 
-function deleteDiaryReview(index) {
-    const rev = diaryReviews[index];
-    if (confirm(`Tem certeza que deseja retirar "${rev.title}" do seu diário?`)) {
-        diaryReviews.splice(index, 1);
-        saveAllToLocalStorage();
-        renderDiary();
-        showToast({ title: "Fita Rebobinada", message: `A review de "${rev.title}" foi removida.`, icon: "🗑️", type: "favorite" });
+// --- 17. RENDERIZAÇÃO DA UI ---
+function getStarString(score) {
+    const fullStars = Math.floor(score);
+    const halfStar = (score % 1) >= 0.5 ? '½' : '';
+    return '★'.repeat(fullStars) + halfStar;
+}
+
+function renderDiary() {
+    if (diaryCount) diaryCount.textContent = diaryReviews.length;
+    if (!diarySection) return;
+    diarySection.innerHTML = '';
+
+    if (diaryReviews.length === 0) {
+        diarySection.innerHTML = `<p style="color: #9E958E;">Nenhuma avaliação no seu banco Supabase. Explore o acervo para cadastrar discos!</p>`;
+        return;
+    }
+
+    let processedReviews = [...diaryReviews];
+
+    if (currentVibeFilter !== 'all') {
+        processedReviews = processedReviews.filter(rev => rev.vibes && rev.vibes.includes(currentVibeFilter));
+    }
+
+    const searchTerm = filterDiaryInput ? filterDiaryInput.value.trim().toLowerCase() : '';
+    if (searchTerm) {
+        processedReviews = processedReviews.filter(rev => 
+            rev.title.toLowerCase().includes(searchTerm) || 
+            rev.artist.toLowerCase().includes(searchTerm) ||
+            rev.reviewText.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    const sortType = sortDiarySelect ? sortDiarySelect.value : 'recent';
+    processedReviews.sort((a, b) => {
+        if (sortType === 'ratingDesc') return b.rating - a.rating;
+        if (sortType === 'ratingAsc') return a.rating - b.rating;
+        if (sortType === 'yearDesc') return parseInt(b.year || 0) - parseInt(a.year || 0);
+        if (sortType === 'yearAsc') return parseInt(a.year || 0) - parseInt(b.year || 0);
+        return 0;
+    });
+
+    if (processedReviews.length === 0) {
+        diarySection.innerHTML = `<p style="color: #9E958E;">Nenhum álbum corresponde ao filtro selecionado.</p>`;
+        return;
+    }
+
+    processedReviews.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'review-card';
+        card.style.marginBottom = '18px';
+
+        const vibesHtml = (item.vibes && item.vibes.length > 0)
+            ? `<div class="diary-vibes-row">${item.vibes.map(v => `<span class="vibe-badge">#${sanitize(v)}</span>`).join('')}</div>`
+            : '';
+
+        card.innerHTML = `
+            <img src="${item.cover}" alt="${sanitize(item.title)}" class="review-cover">
+            <div class="review-content">
+                <div class="review-header">
+                    <div>
+                        <h3>${sanitize(item.title)} <span class="release-year">(${item.year})</span></h3>
+                        <p class="artist-name">${sanitize(item.artist)} • Ouvido em ${item.date}</p>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="edit-card-btn" title="Adicionar à Coleção" onclick="openAddToCollectionModal(${item.id})">📁 Coleção</button>
+                        <button class="edit-card-btn" title="Editar Avaliação" onclick="openAlbumModal(${item.id}, '${item.dbId}')">✏️ Editar</button>
+                        <button class="share-card-btn" onclick="generateShareCard('${item.dbId}')">📤 Gerar Card</button>
+                        <button class="remove-slot-btn" style="position: static; padding: 6px 10px; background: rgba(225, 29, 72, 0.15); color: #ff6b8b; border: 1px solid var(--crimson-rec);" title="Excluir do banco" onclick="deleteDiaryReview('${item.dbId}', '${sanitize(item.title)}')">🗑️</button>
+                    </div>
+                </div>
+                <div class="rating-row">
+                    <span class="stars">${getStarString(item.rating)}</span>
+                    <span class="numeric-score">${item.rating.toFixed(1)} / 5.0</span>
+                    <span class="fav-track-badge">❤️ Favorita: ${sanitize(item.favTrack)}</span>
+                </div>
+                <p class="review-text">"${sanitize(item.reviewText)}"</p>
+                ${vibesHtml}
+            </div>
+        `;
+        diarySection.appendChild(card);
+    });
+}
+
+function renderWantList() {
+    if (wantCount) wantCount.textContent = wantToListen.length;
+    if (!wantGrid) return;
+    wantGrid.innerHTML = '';
+
+    if (wantToListen.length === 0) {
+        wantGrid.innerHTML = `<p style="color: #9E958E; grid-column: 1/-1;">Sua fila está vazia. Explore o acervo e adicione discos!</p>`;
+        return;
+    }
+
+    wantToListen.forEach(album => {
+        const card = document.createElement('div');
+        card.className = 'search-album-card';
+        card.innerHTML = `
+            <div>
+                <img src="${album.cover}" alt="${sanitize(album.title)}">
+                <div class="search-album-title">${sanitize(album.title)}</div>
+                <div class="search-album-artist">${sanitize(album.artist)} • ${album.year}</div>
+            </div>
+            <div class="card-actions">
+                <button class="btn-evaluate" onclick="openAlbumModal(${album.id})">★ Ouvir e Avaliar</button>
+                <button class="btn-want" title="Adicionar à Coleção" onclick="openAddToCollectionModal(${album.id})">📁</button>
+            </div>
+        `;
+        wantGrid.appendChild(card);
+    });
+}
+
+function renderCollections() {
+    if (collectionsCount) collectionsCount.textContent = collections.length;
+    if (!collectionsGrid) return;
+    collectionsGrid.innerHTML = '';
+
+    if (collections.length === 0) {
+        collectionsGrid.innerHTML = `<p style="color: #9E958E; grid-column: 1/-1;">Nenhuma coleção criada. Clique em "+ Nova Coleção" acima!</p>`;
+        return;
+    }
+
+    collections.forEach(col => {
+        const card = document.createElement('div');
+        card.className = 'collection-card';
+        card.onclick = () => openCollectionDetail(col.id);
+
+        let coversHtml = '';
+        for (let i = 0; i < 4; i++) {
+            if (col.albums[i]) {
+                coversHtml += `<img src="${col.albums[i].cover}" alt="Capa" class="collection-mini-cover">`;
+            } else {
+                coversHtml += `<div class="collection-empty-cover">+</div>`;
+            }
+        }
+
+        card.innerHTML = `
+            <div>
+                <div class="collection-header-row">
+                    <span class="collection-title">${sanitize(col.name)}</span>
+                    <span class="collection-badge">${col.albums.length} discos</span>
+                </div>
+                <p class="collection-desc">${sanitize(col.description)}</p>
+                <div class="collection-covers-preview">
+                    ${coversHtml}
+                </div>
+            </div>
+            <div class="collection-actions-row">
+                <span style="font-size: 0.75rem; color: var(--amber-glow); font-weight: 600;">Abrir Pasta ›</span>
+                <button class="btn-delete-collection" onclick="deleteCollection('${col.id}', event)">🗑️ Excluir</button>
+            </div>
+        `;
+
+        collectionsGrid.appendChild(card);
+    });
+}
+
+// --- 18. DESAFIO & ANALYTICS ---
+function renderListeningChallenge() {
+    if (!challengeHeadline || !progressBarFill || !challengePercentText) return;
+    const currentYear = new Date().getFullYear();
+    const completedCount = diaryReviews.length;
+    const percent = Math.min(100, Math.round((completedCount / challengeGoal) * 100));
+    
+    challengeHeadline.textContent = `Meta de Audição: ${completedCount} de ${challengeGoal} álbuns em ${currentYear}`;
+    progressBarFill.style.width = `${percent}%`;
+    challengePercentText.textContent = `${percent}% concluído`;
+
+    const remaining = Math.max(0, challengeGoal - completedCount);
+    if (challengeRemainingText) {
+        challengeRemainingText.textContent = remaining === 0 
+            ? `🎉 Meta atingida! Você completou sua meta musical de ${currentYear}!` 
+            : `Faltam ${remaining} ${remaining === 1 ? 'álbum' : 'álbuns'} para alcançar sua meta`;
+    }
+
+    if (challengePaceBadge) {
+        const now = new Date();
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const dayOfYear = Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
+        const expectedCountByNow = Math.round((dayOfYear / 365) * challengeGoal);
+
+        if (completedCount >= challengeGoal) {
+            challengePaceBadge.className = 'pace-badge';
+            challengePaceBadge.textContent = '🏆 Meta Atingida!';
+        } else if (completedCount >= expectedCountByNow) {
+            const diff = completedCount - expectedCountByNow;
+            challengePaceBadge.className = 'pace-badge';
+            challengePaceBadge.textContent = diff === 0 
+                ? '⚡ No ritmo exato da vitrola' 
+                : `⚡ ${diff} ${diff === 1 ? 'disco' : 'discos'} à frente do ritmo!`;
+        } else {
+            const diff = expectedCountByNow - completedCount;
+            challengePaceBadge.className = 'pace-badge behind';
+            challengePaceBadge.textContent = `⏳ ${diff} ${diff === 1 ? 'disco' : 'discos'} atrás do ritmo`;
+        }
     }
 }
 
-// --- 10. CARD STUDIO 3.0: ASPECT RATIOS & TOP 5 POSTER ---
+if (editGoalBtn) {
+    editGoalBtn.addEventListener('click', async () => {
+        if (!currentUser) return;
+        const input = prompt('Qual a sua meta de álbuns para ouvir este ano?', challengeGoal);
+        const newGoal = parseInt(input);
+
+        if (newGoal && newGoal > 0) {
+            challengeGoal = newGoal;
+            await executeSupabaseQuery('profiles', 'UPDATE', { challenge_goal: challengeGoal }, `id=eq.${currentUser.id}`);
+            renderListeningChallenge();
+            showToast({ title: "Meta Atualizada", message: `Novo objetivo: ${challengeGoal} álbuns.`, icon: "🎯", type: "success" });
+        }
+    });
+}
+
+function renderMusicAnalytics() {
+    if (!ratingsHistogram || !decadesList || !topArtistsList) return;
+
+    if (diaryReviews.length === 0) {
+        ratingsHistogram.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem; width: 100%; text-align: center;">Avalie discos para gerar métricas.</p>`;
+        decadesList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Nenhum dado disponível.</p>`;
+        topArtistsList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Nenhum artista catalogado.</p>`;
+        if (vibeAnalyticsList) vibeAnalyticsList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Nenhum dado registrado.</p>`;
+        return;
+    }
+
+    const possibleScores = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
+    const scoreCounts = {};
+    possibleScores.forEach(s => scoreCounts[s] = 0);
+
+    diaryReviews.forEach(rev => {
+        const rounded = Math.round(rev.rating * 2) / 2;
+        if (scoreCounts[rounded] !== undefined) scoreCounts[rounded]++;
+    });
+
+    const maxCount = Math.max(...Object.values(scoreCounts), 1);
+    let peakScore = 5.0;
+    let highestCount = 0;
+
+    ratingsHistogram.innerHTML = '';
+    possibleScores.forEach(score => {
+        const count = scoreCounts[score];
+        if (count > highestCount) {
+            highestCount = count;
+            peakScore = score;
+        }
+
+        const heightPercent = Math.max(6, Math.round((count / maxCount) * 100));
+        const isPeak = count === highestCount && count > 0;
+
+        const col = document.createElement('div');
+        col.className = 'hist-bar-col';
+        col.innerHTML = `
+            <span class="hist-count-label">${count > 0 ? count : ''}</span>
+            <div class="hist-bar-fill ${isPeak ? 'active-peak' : ''}" style="height: ${heightPercent}%;"></div>
+            <span class="hist-score-label">${score.toFixed(1)}</span>
+        `;
+        ratingsHistogram.appendChild(col);
+    });
+
+    if (mostFrequentRatingTag) {
+        mostFrequentRatingTag.textContent = highestCount > 0 ? `Pico: ${peakScore.toFixed(1)} ★ (${highestCount}x)` : 'Pico: --';
+    }
+
+    const decadeBuckets = {};
+    diaryReviews.forEach(rev => {
+        const year = parseInt(rev.year);
+        if (year && !isNaN(year)) {
+            const decadeStart = Math.floor(year / 10) * 10;
+            const decadeLabel = `${decadeStart}s`;
+            decadeBuckets[decadeLabel] = (decadeBuckets[decadeLabel] || 0) + 1;
+        }
+    });
+
+    const sortedDecades = Object.keys(decadeBuckets).sort((a, b) => parseInt(b) - parseInt(a));
+    decadesList.innerHTML = '';
+
+    if (sortedDecades.length > 0) {
+        const dominantDecade = Object.entries(decadeBuckets).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0]);
+        if (dominantDecadeTag) dominantDecadeTag.textContent = `Dominante: Anos ${dominantDecade[0]}`;
+
+        sortedDecades.forEach(decade => {
+            const count = decadeBuckets[decade];
+            const percent = Math.round((count / diaryReviews.length) * 100);
+
+            const row = document.createElement('div');
+            row.className = 'decade-row';
+            row.innerHTML = `
+                <div class="decade-meta">
+                    <span class="decade-name">Anos ${decade}</span>
+                    <span class="decade-stats">${count} ${count === 1 ? 'disco' : 'discos'} (${percent}%)</span>
+                </div>
+                <div class="decade-bar-track">
+                    <div class="decade-bar-fill" style="width: ${percent}%;"></div>
+                </div>
+            `;
+            decadesList.appendChild(row);
+        });
+    }
+
+    const artistStats = {};
+    diaryReviews.forEach(rev => {
+        const name = rev.artist.trim();
+        if (!artistStats[name]) artistStats[name] = { count: 0, totalRating: 0 };
+        artistStats[name].count++;
+        artistStats[name].totalRating += rev.rating;
+    });
+
+    const sortedArtists = Object.keys(artistStats)
+        .map(name => ({
+            name,
+            count: artistStats[name].count,
+            avgRating: (artistStats[name].totalRating / artistStats[name].count).toFixed(1)
+        }))
+        .sort((a, b) => b.count - a.count || parseFloat(b.avgRating) - parseFloat(a.avgRating))
+        .slice(0, 6);
+
+    topArtistsList.innerHTML = '';
+    sortedArtists.forEach((artist, index) => {
+        const rankNum = String(index + 1).padStart(2, '0');
+        const item = document.createElement('div');
+        item.className = 'ranking-item';
+        item.innerHTML = `
+            <span class="rank-position">#${rankNum}</span>
+            <div class="rank-details">
+                <div class="rank-artist-name" title="${sanitize(artist.name)}">${sanitize(artist.name)}</div>
+                <div class="rank-stats-text">${artist.count} ${artist.count === 1 ? 'álbum avaliado' : 'álbuns avaliados'} • Média: ${artist.avgRating} ★</div>
+            </div>
+        `;
+        topArtistsList.appendChild(item);
+    });
+
+    const vibeCounts = {};
+    diaryReviews.forEach(rev => {
+        if (rev.vibes && Array.isArray(rev.vibes)) {
+            rev.vibes.forEach(v => {
+                vibeCounts[v] = (vibeCounts[v] || 0) + 1;
+            });
+        }
+    });
+
+    if (vibeAnalyticsList) {
+        vibeAnalyticsList.innerHTML = '';
+        const sortedVibes = Object.entries(vibeCounts).sort((a, b) => b[1] - a[1]);
+
+        if (sortedVibes.length === 0) {
+            vibeAnalyticsList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Selecione tags de atmosfera para visualizar o mapa.</p>`;
+            if (dominantVibeTag) dominantVibeTag.textContent = 'Vibe Principal: --';
+        } else {
+            const topVibe = sortedVibes[0];
+            if (dominantVibeTag) dominantVibeTag.textContent = `Vibe Principal: #${topVibe[0]} (${topVibe[1]}x)`;
+
+            const maxVibeCount = topVibe[1];
+            sortedVibes.slice(0, 5).forEach(([vibeName, count]) => {
+                const percent = Math.round((count / maxVibeCount) * 100);
+                const row = document.createElement('div');
+                row.className = 'vibe-rank-row';
+                row.innerHTML = `
+                    <span class="vibe-rank-name">#${sanitize(vibeName)}</span>
+                    <div class="vibe-rank-track">
+                        <div class="vibe-rank-fill" style="width: ${percent}%;"></div>
+                    </div>
+                    <span class="vibe-rank-count">${count}x</span>
+                `;
+                vibeAnalyticsList.appendChild(row);
+            });
+        }
+    }
+}
+
+function renderProfileStats() {
+    if (statReviews) statReviews.textContent = diaryReviews.length;
+    if (statWant) statWant.textContent = wantToListen.length;
+    if (statCollections) statCollections.textContent = collections.length;
+
+    if (statAvgRating) {
+        if (diaryReviews.length > 0) {
+            const sum = diaryReviews.reduce((acc, curr) => acc + curr.rating, 0);
+            const avg = (sum / diaryReviews.length).toFixed(1);
+            statAvgRating.textContent = `${avg} ★`;
+        } else {
+            statAvgRating.textContent = `0.0 ★`;
+        }
+    }
+
+    renderTopFive();
+    renderListeningChallenge();
+    renderMusicAnalytics();
+}
+
+function renderAll() {
+    renderDiary();
+    renderWantList();
+    renderCollections();
+    renderProfileStats();
+}
+
+// --- 19. CARD STUDIO 3.0 ---
 function setAspectRatio(ratio) {
     currentAspectRatio = ratio;
     const dim = aspectDimensions[ratio];
@@ -1092,9 +2303,9 @@ if (ratio45Btn) ratio45Btn.addEventListener('click', () => setAspectRatio('4:5')
 if (ratio916Btn) ratio916Btn.addEventListener('click', () => setAspectRatio('9:16'));
 if (ratio11Btn) ratio11Btn.addEventListener('click', () => setAspectRatio('1:1'));
 
-function generateShareCard(index) {
+function generateShareCard(dbId) {
     isTopFiveCardMode = false;
-    activeReviewForCard = diaryReviews[index];
+    activeReviewForCard = diaryReviews.find(r => r.dbId === dbId);
     if (cardStudioModal) cardStudioModal.classList.remove('hidden');
     setAspectRatio(currentAspectRatio);
 }
@@ -1103,12 +2314,7 @@ if (shareTopFiveBtn) {
     shareTopFiveBtn.addEventListener('click', () => {
         const activeAlbums = topFiveAlbums.filter(a => a !== null);
         if (activeAlbums.length === 0) {
-            showToast({
-                title: "Top 5 Vazio",
-                message: "Fixe pelo menos um álbum no seu Top 5 antes de gerar o pôster.",
-                icon: "🔥",
-                type: "info"
-            });
+            showToast({ title: "Top 5 Vazio", message: "Fixe álbuns no seu Top 5 antes de exportar.", icon: "🔥", type: "info" });
             return;
         }
 
@@ -1398,10 +2604,10 @@ function drawStudioCard(rev, theme) {
             ctx.fillText(line, width / 2, currentY);
         }
 
+        const userName = (currentUser && currentUser.user_metadata && currentUser.user_metadata.name) || 'ERICK NAVA';
         ctx.fillStyle = '#9E958E';
         ctx.font = '500 22px "JetBrains Mono", monospace';
-        const footerY = height - 70;
-        ctx.fillText(`LOGGED BY ERICK NAVA • ${rev.date || '2026'}`, width / 2, footerY);
+        ctx.fillText(`LOGGED BY ${userName.toUpperCase()} • ${rev.date || '2026'}`, width / 2, height - 70);
     };
 
     img.onload = render;
@@ -1435,9 +2641,10 @@ function drawTopFivePoster(theme) {
     ctx.font = '800 48px Inter, sans-serif';
     ctx.fillText('OS 5 ÁLBUNS DA MINHA VIDA', width / 2, 175);
 
+    const userName = (currentUser && currentUser.user_metadata && currentUser.user_metadata.name) || 'Erick Nava';
     ctx.fillStyle = '#9E958E';
     ctx.font = '500 24px Inter, sans-serif';
-    ctx.fillText('Curadoria definitiva de audição atenta // Erick Nava', width / 2, 215);
+    ctx.fillText(`Curadoria definitiva de audição atenta // ${userName}`, width / 2, 215);
 
     const validAlbums = topFiveAlbums.filter(a => a !== null);
     if (validAlbums.length === 0) return;
@@ -1453,16 +2660,12 @@ function drawTopFivePoster(theme) {
         img.onload = () => {
             loadedImages++;
             loadedImgs[idx] = img;
-            if (loadedImages === totalImages) {
-                renderTopFiveContent();
-            }
+            if (loadedImages === totalImages) renderTopFiveContent();
         };
         if (img.complete) {
             loadedImages++;
             loadedImgs[idx] = img;
-            if (loadedImages === totalImages) {
-                renderTopFiveContent();
-            }
+            if (loadedImages === totalImages) renderTopFiveContent();
         }
     });
 
@@ -1515,7 +2718,7 @@ function drawTopFivePoster(theme) {
         ctx.textAlign = 'center';
         ctx.fillStyle = '#9E958E';
         ctx.font = '500 22px "JetBrains Mono", monospace';
-        ctx.fillText('AFTERPLAY STUDIO ARCHIVE // MANAUS - AM', width / 2, height - 55);
+        ctx.fillText('AFTERPLAY STUDIO ARCHIVE // SUPABASE CLOUD', width / 2, height - 55);
     }
 }
 
@@ -1540,7 +2743,7 @@ function downloadCanvasAsImage() {
 
     showToast({
         title: "Download Concluído!",
-        message: `Card exportado em alta definição (${aspectDimensions[currentAspectRatio].label}).`,
+        message: `Card exportado em alta definição.`,
         icon: "💾",
         type: "success"
     });
@@ -1548,682 +2751,7 @@ function downloadCanvasAsImage() {
 
 if (downloadCardBtn) downloadCardBtn.addEventListener('click', downloadCanvasAsImage);
 
-// --- 11. WANT TO LISTEN & VISUALIZADOR DETALHADO DE COLEÇÕES ---
-function addToWantList(collectionId) {
-    let found = lastSearchResults.find(a => a.collectionId === collectionId);
-    if (!found) {
-        const inDiary = diaryReviews.find(a => a.id === collectionId);
-        if (inDiary) found = { collectionId: inDiary.id, collectionName: inDiary.title, artistName: inDiary.artist, releaseDate: inDiary.year, artworkUrl100: inDiary.cover };
-    }
-    if (!found) return;
-
-    if (wantToListen.some(item => item.id === collectionId)) {
-        showToast({ title: "Já na Fila", message: `"${found.collectionName}" já está na lista!`, icon: "🕒", type: "info" });
-        return;
-    }
-
-    wantToListen.unshift({
-        id: found.collectionId,
-        title: found.collectionName,
-        artist: found.artistName,
-        year: found.releaseDate ? found.releaseDate.substring(0, 4) : 'N/A',
-        cover: found.artworkUrl100.replace('100x100bb', '600x600bb')
-    });
-
-    saveAllToLocalStorage();
-    renderWantList();
-    showToast({ title: "Na Fila da Vitrola", message: `"${found.collectionName}" guardado para ouvir!`, icon: "📻", type: "info" });
-}
-
-if (openCreateCollectionBtn) {
-    openCreateCollectionBtn.addEventListener('click', () => {
-        if (newCollectionNameInput) newCollectionNameInput.value = '';
-        if (newCollectionDescInput) newCollectionDescInput.value = '';
-        if (createCollectionModal) createCollectionModal.classList.remove('hidden');
-    });
-}
-
-if (closeCreateCollectionBtn) {
-    closeCreateCollectionBtn.addEventListener('click', () => {
-        if (createCollectionModal) createCollectionModal.classList.add('hidden');
-    });
-}
-
-if (submitCreateCollectionBtn) {
-    submitCreateCollectionBtn.addEventListener('click', () => {
-        const name = newCollectionNameInput ? newCollectionNameInput.value.trim() : '';
-        const desc = newCollectionDescInput ? newCollectionDescInput.value.trim() : '';
-
-        if (!name) {
-            showToast({ title: "Coleção sem Título", message: "Digite um nome para a pasta temática.", icon: "⚠️", type: "info" });
-            return;
-        }
-
-        const newCollection = {
-            id: Date.now(),
-            name: name,
-            description: desc || "Coleção temática criada no Afterplay.",
-            albums: []
-        };
-
-        collections.unshift(newCollection);
-        saveAllToLocalStorage();
-        renderCollections();
-        if (createCollectionModal) createCollectionModal.classList.add('hidden');
-
-        showToast({
-            title: "Pasta Temática Criada!",
-            message: `A coleção "${name}" está pronta para receber discos.`,
-            icon: "📁",
-            type: "success"
-        });
-    });
-}
-
-function deleteCollection(collectionId, event) {
-    if (event) event.stopPropagation();
-    const col = collections.find(c => c.id === collectionId);
-    if (!col) return;
-
-    if (confirm(`Deseja apagar a coleção "${col.name}"? Os álbuns do seu diário não serão excluídos.`)) {
-        collections = collections.filter(c => c.id !== collectionId);
-        saveAllToLocalStorage();
-        if (activeOpenCollectionId === collectionId) {
-            closeCollectionDetail();
-        } else {
-            renderCollections();
-        }
-        showToast({ title: "Pasta Desmontada", message: `Coleção "${col.name}" excluída.`, icon: "🗑️", type: "info" });
-    }
-}
-
-if (backToCollectionsBtn) {
-    backToCollectionsBtn.addEventListener('click', () => {
-        closeCollectionDetail();
-    });
-}
-
-function closeCollectionDetail() {
-    activeOpenCollectionId = null;
-    if (collectionDetailContainer) collectionDetailContainer.classList.add('hidden');
-    if (collectionsMainContainer) collectionsMainContainer.classList.remove('hidden');
-    renderCollections();
-}
-
-function openCollectionDetail(collectionId) {
-    const col = collections.find(c => c.id === collectionId);
-    if (!col) return;
-
-    activeOpenCollectionId = collectionId;
-    if (collectionsMainContainer) collectionsMainContainer.classList.add('hidden');
-    if (collectionDetailContainer) collectionDetailContainer.classList.remove('hidden');
-
-    if (collectionDetailTitle) collectionDetailTitle.textContent = col.name;
-    if (collectionDetailDesc) collectionDetailDesc.textContent = col.description;
-    if (collectionDetailCount) collectionDetailCount.textContent = col.albums.length;
-
-    if (collectionDetailAvg) {
-        const ratedAlbums = col.albums.map(a => {
-            const foundInDiary = diaryReviews.find(r => r.id === a.id);
-            return foundInDiary ? foundInDiary.rating : null;
-        }).filter(r => r !== null);
-
-        if (ratedAlbums.length > 0) {
-            const avg = (ratedAlbums.reduce((sum, r) => sum + r, 0) / ratedAlbums.length).toFixed(1);
-            collectionDetailAvg.textContent = `${avg} ★`;
-        } else {
-            collectionDetailAvg.textContent = `-- ★`;
-        }
-    }
-
-    renderCollectionDetailAlbums(col);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function renderCollectionDetailAlbums(col) {
-    if (!collectionDetailGrid) return;
-    collectionDetailGrid.innerHTML = '';
-
-    if (col.albums.length === 0) {
-        collectionDetailGrid.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px;">
-                <p style="color: #9E958E; font-size: 0.95rem;">Esta pasta ainda não possui discos arquivados.</p>
-                <a href="#/busca" class="btn-open-disco" style="display: inline-block; margin-top: 12px; text-decoration: none; padding: 8px 16px;">
-                    🔍 Explorar Acervo e Adicionar Álbuns
-                </a>
-            </div>
-        `;
-        return;
-    }
-
-    col.albums.forEach(album => {
-        const foundInDiary = diaryReviews.find(r => r.id === album.id);
-        const ratingBadge = foundInDiary 
-            ? `<span class="numeric-score" style="font-size: 0.75rem;">${foundInDiary.rating.toFixed(1)} ★</span>` 
-            : `<span style="font-size: 0.72rem; color: var(--text-muted);">Não avaliado</span>`;
-
-        const card = document.createElement('div');
-        card.className = 'search-album-card';
-        card.innerHTML = `
-            <div>
-                <img src="${album.cover}" alt="${album.title}">
-                <div class="search-album-title" title="${album.title}">${album.title}</div>
-                <div class="search-album-artist">${album.artist} • ${album.year}</div>
-                <div style="margin-top: 6px;">${ratingBadge}</div>
-            </div>
-            <div class="card-actions" style="margin-top: 12px;">
-                <button class="btn-evaluate" onclick="openAlbumModal(${album.id})">★ Ver / Avaliar</button>
-                <button class="btn-remove-from-col" title="Retirar da pasta" onclick="removeAlbumFromCollection(${col.id}, ${album.id}, event)">🗑️ Tirar</button>
-            </div>
-        `;
-        collectionDetailGrid.appendChild(card);
-    });
-}
-
-function removeAlbumFromCollection(collectionId, albumId, event) {
-    if (event) event.stopPropagation();
-    const col = collections.find(c => c.id === collectionId);
-    if (!col) return;
-
-    const removedAlbum = col.albums.find(a => a.id === albumId);
-    col.albums = col.albums.filter(a => a.id !== albumId);
-    saveAllToLocalStorage();
-
-    showToast({
-        title: "Disco Removido da Pasta",
-        message: `"${removedAlbum ? removedAlbum.title : 'Álbum'}" foi retirado de "${col.name}".`,
-        icon: "📦",
-        type: "info"
-    });
-
-    if (activeOpenCollectionId === collectionId) {
-        openCollectionDetail(collectionId);
-    } else {
-        renderCollections();
-    }
-}
-
-function openAddToCollectionModal(collectionId) {
-    let found = lastSearchResults.find(a => a.collectionId === collectionId);
-    if (!found) {
-        const inDiary = diaryReviews.find(a => a.id === collectionId);
-        if (inDiary) found = { collectionId: inDiary.id, collectionName: inDiary.title, artistName: inDiary.artist, releaseDate: inDiary.year, artworkUrl100: inDiary.cover };
-    }
-    if (!found && currentAlbumInModal && currentAlbumInModal.id === collectionId) {
-        found = { collectionId: currentAlbumInModal.id, collectionName: currentAlbumInModal.title, artistName: currentAlbumInModal.artist, releaseDate: currentAlbumInModal.year, artworkUrl100: currentAlbumInModal.cover };
-    }
-    if (!found) return;
-
-    albumToAddToCollection = {
-        id: found.collectionId,
-        title: found.collectionName,
-        artist: found.artistName,
-        year: found.releaseDate ? String(found.releaseDate).substring(0, 4) : 'N/A',
-        cover: found.artworkUrl100.replace('100x100bb', '600x600bb')
-    };
-
-    if (targetAlbumNameDisplay) targetAlbumNameDisplay.textContent = `🎵 ${albumToAddToCollection.title} — ${albumToAddToCollection.artist}`;
-    if (!collectionChoicesList) return;
-    collectionChoicesList.innerHTML = '';
-
-    if (collections.length === 0) {
-        collectionChoicesList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Você ainda não criou nenhuma pasta temática. Crie uma na aba Coleções!</p>`;
-    } else {
-        collections.forEach(col => {
-            const btn = document.createElement('button');
-            btn.className = 'choice-item-btn';
-            const alreadyIn = col.albums.some(a => a.id === albumToAddToCollection.id);
-
-            btn.innerHTML = `
-                <span>📁 ${col.name}</span>
-                <span style="font-size: 0.75rem; color: ${alreadyIn ? '#10B981' : 'var(--amber-glow)'};">
-                    ${alreadyIn ? '✓ Já incluído' : '+ Adicionar'}
-                </span>
-            `;
-
-            btn.onclick = () => {
-                if (alreadyIn) {
-                    showToast({ title: "Já Arquivado", message: `Este disco já está na pasta "${col.name}"!`, icon: "📁", type: "info" });
-                    return;
-                }
-                col.albums.push(albumToAddToCollection);
-                saveAllToLocalStorage();
-                renderCollections();
-                if (addToCollectionModal) addToCollectionModal.classList.add('hidden');
-
-                showToast({
-                    title: "Vinil Arquivado!",
-                    message: `"${albumToAddToCollection.title}" adicionado à pasta "${col.name}".`,
-                    icon: "💽",
-                    type: "success"
-                });
-            };
-
-            collectionChoicesList.appendChild(btn);
-        });
-    }
-
-    if (addToCollectionModal) addToCollectionModal.classList.remove('hidden');
-}
-
-if (closeAddToCollectionBtn) {
-    closeAddToCollectionBtn.addEventListener('click', () => {
-        if (addToCollectionModal) addToCollectionModal.classList.add('hidden');
-    });
-}
-
-if (modalAddCollectionBtn) {
-    modalAddCollectionBtn.addEventListener('click', () => {
-        if (currentAlbumInModal) {
-            openAddToCollectionModal(currentAlbumInModal.id);
-        }
-    });
-}
-
-function renderCollections() {
-    if (collectionsCount) collectionsCount.textContent = collections.length;
-    if (!collectionsGrid) return;
-    collectionsGrid.innerHTML = '';
-
-    if (collections.length === 0) {
-        collectionsGrid.innerHTML = `<p style="color: #9E958E; grid-column: 1/-1;">Nenhuma coleção criada ainda. Clique no botão "+ Nova Coleção" acima!</p>`;
-        return;
-    }
-
-    collections.forEach(col => {
-        const card = document.createElement('div');
-        card.className = 'collection-card';
-        card.onclick = () => openCollectionDetail(col.id);
-
-        let coversHtml = '';
-        for (let i = 0; i < 4; i++) {
-            if (col.albums[i]) {
-                coversHtml += `<img src="${col.albums[i].cover}" alt="Capa" class="collection-mini-cover">`;
-            } else {
-                coversHtml += `<div class="collection-empty-cover">+</div>`;
-            }
-        }
-
-        card.innerHTML = `
-            <div>
-                <div class="collection-header-row">
-                    <span class="collection-title">${col.name}</span>
-                    <span class="collection-badge">${col.albums.length} discos</span>
-                </div>
-                <p class="collection-desc">${col.description}</p>
-                <div class="collection-covers-preview">
-                    ${coversHtml}
-                </div>
-            </div>
-            <div class="collection-actions-row">
-                <span style="font-size: 0.75rem; color: var(--amber-glow); font-weight: 600;">Abrir Pasta ›</span>
-                <button class="btn-delete-collection" onclick="deleteCollection(${col.id}, event)">🗑️ Excluir</button>
-            </div>
-        `;
-
-        collectionsGrid.appendChild(card);
-    });
-}
-
-// --- 12. RENDERIZAR DIÁRIO E WANT LIST COM LISTENING MOODS ---
-function getStarString(score) {
-    const fullStars = Math.floor(score);
-    const halfStar = (score % 1) >= 0.5 ? '½' : '';
-    return '★'.repeat(fullStars) + halfStar;
-}
-
-function renderDiary() {
-    if (diaryCount) diaryCount.textContent = diaryReviews.length;
-    if (!diarySection) return;
-    diarySection.innerHTML = '';
-
-    if (diaryReviews.length === 0) {
-        diarySection.innerHTML = `<p style="color: #9E958E;">Nenhuma avaliação ainda. Explore o acervo na página de busca para começar seu diário!</p>`;
-        return;
-    }
-
-    let processedReviews = diaryReviews.map((item, originalIndex) => ({ ...item, originalIndex }));
-
-    // Filtro por Vibe
-    if (currentVibeFilter !== 'all') {
-        processedReviews = processedReviews.filter(rev => rev.vibes && rev.vibes.includes(currentVibeFilter));
-    }
-
-    // Filtro de Texto
-    const searchTerm = filterDiaryInput ? filterDiaryInput.value.trim().toLowerCase() : '';
-    if (searchTerm) {
-        processedReviews = processedReviews.filter(rev => 
-            rev.title.toLowerCase().includes(searchTerm) || 
-            rev.artist.toLowerCase().includes(searchTerm) ||
-            rev.reviewText.toLowerCase().includes(searchTerm)
-        );
-    }
-
-    // Ordenação
-    const sortType = sortDiarySelect ? sortDiarySelect.value : 'recent';
-    processedReviews.sort((a, b) => {
-        if (sortType === 'ratingDesc') return b.rating - a.rating;
-        if (sortType === 'ratingAsc') return a.rating - b.rating;
-        if (sortType === 'yearDesc') return parseInt(b.year || 0) - parseInt(a.year || 0);
-        if (sortType === 'yearAsc') return parseInt(a.year || 0) - parseInt(b.year || 0);
-        return 0;
-    });
-
-    if (processedReviews.length === 0) {
-        diarySection.innerHTML = `<p style="color: #9E958E;">Nenhum álbum corresponde ao filtro de atmosfera ou busca selecionado.</p>`;
-        return;
-    }
-
-    processedReviews.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'review-card';
-        card.style.marginBottom = '18px';
-
-        const vibesHtml = (item.vibes && item.vibes.length > 0)
-            ? `<div class="diary-vibes-row">${item.vibes.map(v => `<span class="vibe-badge">#${v}</span>`).join('')}</div>`
-            : '';
-
-        card.innerHTML = `
-            <img src="${item.cover}" alt="${item.title}" class="review-cover">
-            <div class="review-content">
-                <div class="review-header">
-                    <div>
-                        <h3>${item.title} <span class="release-year">(${item.year})</span></h3>
-                        <p class="artist-name">${item.artist} • Ouvido em ${item.date}</p>
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="edit-card-btn" title="Adicionar à Coleção" onclick="openAddToCollectionModal(${item.id})">📁 Coleção</button>
-                        <button class="edit-card-btn" title="Editar Avaliação" onclick="editDiaryReview(${item.originalIndex})">✏️ Editar</button>
-                        <button class="share-card-btn" onclick="generateShareCard(${item.originalIndex})">📤 Gerar Card</button>
-                        <button class="remove-slot-btn" style="position: static; padding: 6px 10px; background: rgba(225, 29, 72, 0.15); color: #ff6b8b; border: 1px solid var(--crimson-rec);" title="Excluir review" onclick="deleteDiaryReview(${item.originalIndex})">🗑️</button>
-                    </div>
-                </div>
-                <div class="rating-row">
-                    <span class="stars">${getStarString(item.rating)}</span>
-                    <span class="numeric-score">${item.rating.toFixed(1)} / 5.0</span>
-                    <span class="fav-track-badge">❤️ Favorita: ${item.favTrack}</span>
-                </div>
-                <p class="review-text">"${item.reviewText}"</p>
-                ${vibesHtml}
-            </div>
-        `;
-        diarySection.appendChild(card);
-    });
-}
-
-function renderWantList() {
-    if (wantCount) wantCount.textContent = wantToListen.length;
-    if (!wantGrid) return;
-    wantGrid.innerHTML = '';
-
-    if (wantToListen.length === 0) {
-        wantGrid.innerHTML = `<p style="color: #9E958E; grid-column: 1/-1;">Sua fila Want to Listen está vazia. Visite a página de busca para adicionar novos discos!</p>`;
-        return;
-    }
-
-    wantToListen.forEach(album => {
-        const card = document.createElement('div');
-        card.className = 'search-album-card';
-        card.innerHTML = `
-            <div>
-                <img src="${album.cover}" alt="${album.title}">
-                <div class="search-album-title">${album.title}</div>
-                <div class="search-album-artist">${album.artist} • ${album.year}</div>
-            </div>
-            <div class="card-actions">
-                <button class="btn-evaluate" onclick="openAlbumModal(${album.id})">★ Ouvir e Avaliar</button>
-                <button class="btn-want" title="Adicionar à Coleção" onclick="openAddToCollectionModal(${album.id})">📁</button>
-            </div>
-        `;
-        wantGrid.appendChild(card);
-    });
-}
-
-// --- 13. DESAFIO ANUAL & ESTATÍSTICAS ANALÍTICAS ---
-function renderListeningChallenge() {
-    if (!challengeHeadline || !progressBarFill || !challengePercentText) return;
-    const currentYear = new Date().getFullYear();
-    const completedCount = diaryReviews.length;
-    const percent = Math.min(100, Math.round((completedCount / challengeGoal) * 100));
-    
-    challengeHeadline.textContent = `Meta de Audição: ${completedCount} de ${challengeGoal} álbuns em ${currentYear}`;
-    progressBarFill.style.width = `${percent}%`;
-    challengePercentText.textContent = `${percent}% concluído`;
-
-    const remaining = Math.max(0, challengeGoal - completedCount);
-    if (challengeRemainingText) {
-        if (remaining === 0) {
-            challengeRemainingText.textContent = `🎉 Desafio concluído! Você zerou sua meta musical de ${currentYear}!`;
-        } else {
-            challengeRemainingText.textContent = `Faltam ${remaining} ${remaining === 1 ? 'álbum' : 'álbuns'} para alcançar sua meta`;
-        }
-    }
-
-    if (challengePaceBadge) {
-        const now = new Date();
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        const dayOfYear = Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
-        const expectedCountByNow = Math.round((dayOfYear / 365) * challengeGoal);
-
-        if (completedCount >= challengeGoal) {
-            challengePaceBadge.className = 'pace-badge';
-            challengePaceBadge.textContent = '🏆 Meta Atingida!';
-        } else if (completedCount >= expectedCountByNow) {
-            const diff = completedCount - expectedCountByNow;
-            challengePaceBadge.className = 'pace-badge';
-            challengePaceBadge.textContent = diff === 0 
-                ? '⚡ No ritmo exato da vitrola' 
-                : `⚡ ${diff} ${diff === 1 ? 'disco' : 'discos'} à frente do ritmo!`;
-        } else {
-            const diff = expectedCountByNow - completedCount;
-            challengePaceBadge.className = 'pace-badge behind';
-            challengePaceBadge.textContent = `⏳ ${diff} ${diff === 1 ? 'disco' : 'discos'} atrás do ritmo anual`;
-        }
-    }
-}
-
-if (editGoalBtn) {
-    editGoalBtn.addEventListener('click', () => {
-        const input = prompt('Qual a sua meta de álbuns para ouvir em 2026?', challengeGoal);
-        const newGoal = parseInt(input);
-
-        if (newGoal && newGoal > 0) {
-            challengeGoal = newGoal;
-            localStorage.setItem('afterplay_challenge_goal', challengeGoal);
-            renderListeningChallenge();
-
-            showToast({
-                title: "Meta Atualizada!",
-                message: `Novo objetivo definido para ${challengeGoal} álbuns em 2026.`,
-                icon: "🎯",
-                type: "success"
-            });
-        }
-    });
-}
-
-function renderMusicAnalytics() {
-    if (!ratingsHistogram || !decadesList || !topArtistsList) return;
-
-    if (diaryReviews.length === 0) {
-        ratingsHistogram.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem; width: 100%; text-align: center;">Avalie discos para gerar o histograma de notas.</p>`;
-        decadesList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Nenhum dado de época disponível ainda.</p>`;
-        topArtistsList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Nenhum artista catalogado.</p>`;
-        if (vibeAnalyticsList) vibeAnalyticsList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Nenhum dado de atmosfera registrado.</p>`;
-        return;
-    }
-
-    // 1. Histograma de Notas
-    const possibleScores = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
-    const scoreCounts = {};
-    possibleScores.forEach(s => scoreCounts[s] = 0);
-
-    diaryReviews.forEach(rev => {
-        const rounded = Math.round(rev.rating * 2) / 2;
-        if (scoreCounts[rounded] !== undefined) scoreCounts[rounded]++;
-    });
-
-    const maxCount = Math.max(...Object.values(scoreCounts), 1);
-    let peakScore = 5.0;
-    let highestCount = 0;
-
-    ratingsHistogram.innerHTML = '';
-    possibleScores.forEach(score => {
-        const count = scoreCounts[score];
-        if (count > highestCount) {
-            highestCount = count;
-            peakScore = score;
-        }
-
-        const heightPercent = Math.max(6, Math.round((count / maxCount) * 100));
-        const isPeak = count === highestCount && count > 0;
-
-        const col = document.createElement('div');
-        col.className = 'hist-bar-col';
-        col.innerHTML = `
-            <span class="hist-count-label">${count > 0 ? count : ''}</span>
-            <div class="hist-bar-fill ${isPeak ? 'active-peak' : ''}" style="height: ${heightPercent}%;"></div>
-            <span class="hist-score-label">${score.toFixed(1)}</span>
-        `;
-        ratingsHistogram.appendChild(col);
-    });
-
-    if (mostFrequentRatingTag) {
-        mostFrequentRatingTag.textContent = highestCount > 0 ? `Pico: ${peakScore.toFixed(1)} ★ (${highestCount}x)` : 'Pico: --';
-    }
-
-    // 2. Linha do Tempo por Décadas
-    const decadeBuckets = {};
-    diaryReviews.forEach(rev => {
-        const year = parseInt(rev.year);
-        if (year && !isNaN(year)) {
-            const decadeStart = Math.floor(year / 10) * 10;
-            const decadeLabel = `${decadeStart}s`;
-            decadeBuckets[decadeLabel] = (decadeBuckets[decadeLabel] || 0) + 1;
-        }
-    });
-
-    const sortedDecades = Object.keys(decadeBuckets).sort((a, b) => parseInt(b) - parseInt(a));
-    decadesList.innerHTML = '';
-
-    if (sortedDecades.length === 0) {
-        decadesList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Datas de lançamento não informadas.</p>`;
-    } else {
-        const dominantDecade = Object.entries(decadeBuckets).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0]);
-        if (dominantDecadeTag) dominantDecadeTag.textContent = `Dominante: Anos ${dominantDecade[0]}`;
-
-        sortedDecades.forEach(decade => {
-            const count = decadeBuckets[decade];
-            const percent = Math.round((count / diaryReviews.length) * 100);
-
-            const row = document.createElement('div');
-            row.className = 'decade-row';
-            row.innerHTML = `
-                <div class="decade-meta">
-                    <span class="decade-name">Anos ${decade}</span>
-                    <span class="decade-stats">${count} ${count === 1 ? 'disco' : 'discos'} (${percent}%)</span>
-                </div>
-                <div class="decade-bar-track">
-                    <div class="decade-bar-fill" style="width: ${percent}%;"></div>
-                </div>
-            `;
-            decadesList.appendChild(row);
-        });
-    }
-
-    // 3. Top Artistas Mais Ouvidos
-    const artistStats = {};
-    diaryReviews.forEach(rev => {
-        const name = rev.artist.trim();
-        if (!artistStats[name]) artistStats[name] = { count: 0, totalRating: 0 };
-        artistStats[name].count++;
-        artistStats[name].totalRating += rev.rating;
-    });
-
-    const sortedArtists = Object.keys(artistStats)
-        .map(name => ({
-            name,
-            count: artistStats[name].count,
-            avgRating: (artistStats[name].totalRating / artistStats[name].count).toFixed(1)
-        }))
-        .sort((a, b) => b.count - a.count || parseFloat(b.avgRating) - parseFloat(a.avgRating))
-        .slice(0, 6);
-
-    topArtistsList.innerHTML = '';
-    sortedArtists.forEach((artist, index) => {
-        const rankNum = String(index + 1).padStart(2, '0');
-        const item = document.createElement('div');
-        item.className = 'ranking-item';
-        item.innerHTML = `
-            <span class="rank-position">#${rankNum}</span>
-            <div class="rank-details">
-                <div class="rank-artist-name" title="${artist.name}">${artist.name}</div>
-                <div class="rank-stats-text">${artist.count} ${artist.count === 1 ? 'álbum avaliado' : 'álbuns avaliados'} • Média: ${artist.avgRating} ★</div>
-            </div>
-        `;
-        topArtistsList.appendChild(item);
-    });
-
-    // 4. Atmosferas de Escuta // Top Vibes
-    const vibeCounts = {};
-    diaryReviews.forEach(rev => {
-        if (rev.vibes && Array.isArray(rev.vibes)) {
-            rev.vibes.forEach(v => {
-                vibeCounts[v] = (vibeCounts[v] || 0) + 1;
-            });
-        }
-    });
-
-    if (vibeAnalyticsList) {
-        vibeAnalyticsList.innerHTML = '';
-        const sortedVibes = Object.entries(vibeCounts).sort((a, b) => b[1] - a[1]);
-
-        if (sortedVibes.length === 0) {
-            vibeAnalyticsList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Selecione tags de atmosfera nas suas avaliações para visualizar o mapa de humor.</p>`;
-            if (dominantVibeTag) dominantVibeTag.textContent = 'Vibe Principal: --';
-        } else {
-            const topVibe = sortedVibes[0];
-            if (dominantVibeTag) dominantVibeTag.textContent = `Vibe Principal: #${topVibe[0]} (${topVibe[1]}x)`;
-
-            const maxVibeCount = topVibe[1];
-            sortedVibes.slice(0, 5).forEach(([vibeName, count]) => {
-                const percent = Math.round((count / maxVibeCount) * 100);
-                const row = document.createElement('div');
-                row.className = 'vibe-rank-row';
-                row.innerHTML = `
-                    <span class="vibe-rank-name">#${vibeName}</span>
-                    <div class="vibe-rank-track">
-                        <div class="vibe-rank-fill" style="width: ${percent}%;"></div>
-                    </div>
-                    <span class="vibe-rank-count">${count}x</span>
-                `;
-                vibeAnalyticsList.appendChild(row);
-            });
-        }
-    }
-}
-
-function renderProfileStats() {
-    if (statReviews) statReviews.textContent = diaryReviews.length;
-    if (statWant) statWant.textContent = wantToListen.length;
-    if (statCollections) statCollections.textContent = collections.length;
-
-    if (statAvgRating) {
-        if (diaryReviews.length > 0) {
-            const sum = diaryReviews.reduce((acc, curr) => acc + curr.rating, 0);
-            const avg = (sum / diaryReviews.length).toFixed(1);
-            statAvgRating.textContent = `${avg} ★`;
-        } else {
-            statAvgRating.textContent = `0.0 ★`;
-        }
-    }
-
-    renderTopFive();
-    renderListeningChallenge();
-    renderMusicAnalytics();
-}
-
-// --- 14. MÓDULO AFTERPLAY WRAPPED ---
+// --- 20. WRAPPED ---
 if (wrappedTypeMonthlyBtn) {
     wrappedTypeMonthlyBtn.addEventListener('click', () => {
         wrappedType = 'monthly';
@@ -2282,7 +2810,7 @@ if (openWrappedBtn) {
         if (filteredAlbums.length === 0) {
             showToast({
                 title: "Sem Fitas no Período",
-                message: `Nenhum álbum foi registrado em ${periodTitle}.`,
+                message: `Nenhum álbum registrado em ${periodTitle}.`,
                 icon: "📻",
                 type: "info"
             });
@@ -2317,16 +2845,16 @@ if (openWrappedBtn) {
 
         if (wrappedTopAlbumContainer) {
             wrappedTopAlbumContainer.innerHTML = `
-                <img src="${topAlbum.cover}" alt="${topAlbum.title}" class="wrapped-spotlight-cover">
+                <img src="${topAlbum.cover}" alt="${sanitize(topAlbum.title)}" class="wrapped-spotlight-cover">
                 <div class="wrapped-spotlight-meta">
-                    <h4>${topAlbum.title}</h4>
-                    <p>${topAlbum.artist} • ${topAlbum.year}</p>
+                    <h4>${sanitize(topAlbum.title)}</h4>
+                    <p>${sanitize(topAlbum.artist)} • ${topAlbum.year}</p>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <span class="stars" style="font-size: 1rem;">${getStarString(topAlbum.rating)}</span>
                         <span class="numeric-score" style="font-size: 0.8rem;">${topAlbum.rating.toFixed(1)} ★</span>
                     </div>
                     ${topAlbum.favTrack && topAlbum.favTrack !== 'Nenhuma selecionada' 
-                        ? `<span class="fav-track-badge" style="margin-top: 6px; display: inline-block;">❤️ Ponto Alto: ${topAlbum.favTrack}</span>` 
+                        ? `<span class="fav-track-badge" style="margin-top: 6px; display: inline-block;">❤️ Ponto Alto: ${sanitize(topAlbum.favTrack)}</span>` 
                         : ''}
                 </div>
             `;
@@ -2337,7 +2865,7 @@ if (openWrappedBtn) {
             filteredAlbums.forEach(album => {
                 const img = document.createElement('img');
                 img.src = album.cover;
-                img.alt = album.title;
+                img.alt = sanitize(album.title);
                 img.title = `${album.title} — ${album.artist} (${album.rating.toFixed(1)} ★)`;
                 img.className = 'wrapped-thumb-cover';
                 wrappedCoversGrid.appendChild(img);
@@ -2348,7 +2876,7 @@ if (openWrappedBtn) {
 
         showToast({
             title: "Retrospectiva Gerada!",
-            message: `Compilado de ${periodTitle} aberto com sucesso.`,
+            message: `Compilado de ${periodTitle} aberto.`,
             icon: "✨",
             type: "success"
         });
@@ -2477,9 +3005,10 @@ if (exportWrappedCardBtn) {
             const quoteText = quote.length > 90 ? quote.substring(0, 87) + '..."' : quote;
             ctx.fillText(quoteText, width / 2, 1140);
 
+            const userName = (currentUser && currentUser.user_metadata && currentUser.user_metadata.name) || 'ERICK NAVA';
             ctx.fillStyle = '#9E958E';
             ctx.font = '500 22px "JetBrains Mono", monospace';
-            ctx.fillText(`AFTERPLAY ARCHIVE // ERICK NAVA • ${currentWrappedData.periodTitle}`, width / 2, 1265);
+            ctx.fillText(`AFTERPLAY ARCHIVE // ${userName.toUpperCase()} • ${currentWrappedData.periodTitle}`, width / 2, 1265);
 
             const link = document.createElement('a');
             const safePeriod = currentWrappedData.periodTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -2489,7 +3018,7 @@ if (exportWrappedCardBtn) {
 
             showToast({
                 title: "Pôster Wrapped Baixado!",
-                message: `Retrospectiva de ${currentWrappedData.periodTitle} salva em 1080x1350 PNG.`,
+                message: `Retrospectiva salva em PNG.`,
                 icon: "💾",
                 type: "success"
             });
@@ -2499,464 +3028,54 @@ if (exportWrappedCardBtn) {
     });
 }
 
-// --- 15. MÓDULO DE BACKUP & CLOUD SYNC ---
-if (exportBackupBtn) {
-    exportBackupBtn.addEventListener('click', () => {
-        const fullBackup = {
-            version: "3.0",
-            exportDate: new Date().toISOString(),
-            diaryReviews,
-            wantToListen,
-            topFiveAlbums,
-            collections,
-            challengeGoal
-        };
+// --- MONITORAMENTO RESILIENTE DE CONEXÃO (ONLINE / OFFLINE) ---
+const offlineRibbon = document.getElementById('offlineRibbon');
+const authStatusDotEl = document.getElementById('authStatusDot');
 
-        const jsonString = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullBackup, null, 2));
-        const downloadAnchor = document.createElement('a');
-        const dateStamp = new Date().toISOString().split('T')[0];
-        downloadAnchor.setAttribute("href", jsonString);
-        downloadAnchor.setAttribute("download", `afterplay-backup-${dateStamp}.json`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
+function updateNetworkStatus() {
+    const isOnline = navigator.onLine;
+
+    if (isOnline) {
+        if (offlineRibbon) offlineRibbon.classList.add('hidden');
+        if (authStatusDotEl) authStatusDotEl.classList.remove('offline');
+
+        if (currentUser && authStatusText) {
+            const rawName = (currentUser.user_metadata && currentUser.user_metadata.name) || currentUser.email.split('@')[0];
+            authStatusText.textContent = rawName.trim().toUpperCase();
+        }
+
+        if (currentUser) {
+            loadAllUserDataFromSupabase().catch(() => {});
+        }
+    } else {
+        if (offlineRibbon) offlineRibbon.classList.remove('hidden');
+        if (authStatusDotEl) authStatusDotEl.classList.add('offline');
+        if (authStatusText) authStatusText.textContent = "OFFLINE";
 
         showToast({
-            title: "Backup Concluído!",
-            message: "Arquivo JSON gerado e salvo nos seus downloads.",
-            icon: "💾",
-            type: "success"
+            title: "Sinal Interrompido",
+            message: "A vitrola continuará funcionando em modo local.",
+            icon: "📻",
+            type: "info",
+            duration: 3500
         });
-    });
-}
-
-if (importBackupInput) {
-    importBackupInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const data = JSON.parse(event.target.result);
-                if (data.diaryReviews && Array.isArray(data.diaryReviews)) {
-                    diaryReviews = data.diaryReviews;
-                    wantToListen = data.wantToListen || [];
-                    topFiveAlbums = data.topFiveAlbums || [null, null, null, null, null];
-                    collections = data.collections || [];
-                    challengeGoal = data.challengeGoal || 50;
-
-                    saveAllToLocalStorage();
-                    renderAll();
-
-                    showToast({
-                        title: "Acervo Restaurado!",
-                        message: `${diaryReviews.length} avaliações restauradas com sucesso.`,
-                        icon: "🔄",
-                        type: "success"
-                    });
-                } else {
-                    throw new Error("Formato de arquivo inválido.");
-                }
-            } catch (err) {
-                console.error(err);
-                showToast({
-                    title: "Erro na Leitura",
-                    message: "Arquivo de backup inválido ou corrompido.",
-                    icon: "⚠️",
-                    type: "favorite"
-                });
-            }
-        };
-        reader.readAsText(file);
-    });
-}
-
-if (cloudSyncModalBtn) {
-    cloudSyncModalBtn.addEventListener('click', () => {
-        if (cloudEndpointInput) cloudEndpointInput.value = localStorage.getItem('afterplay_cloud_endpoint') || '';
-        if (cloudKeyInput) cloudKeyInput.value = localStorage.getItem('afterplay_cloud_key') || '';
-        if (cloudSyncModal) cloudSyncModal.classList.remove('hidden');
-    });
-}
-
-if (closeCloudModalBtn) {
-    closeCloudModalBtn.addEventListener('click', () => {
-        if (cloudSyncModal) cloudSyncModal.classList.add('hidden');
-    });
-}
-
-if (saveCloudSyncBtn) {
-    saveCloudSyncBtn.addEventListener('click', async () => {
-        const endpoint = cloudEndpointInput.value.trim();
-        const key = cloudKeyInput.value.trim();
-
-        if (!endpoint) {
-            showToast({ title: "Endpoint Ausente", message: "Informe a URL ou Endpoint do seu banco na nuvem.", icon: "⚠️", type: "info" });
-            return;
-        }
-
-        localStorage.setItem('afterplay_cloud_endpoint', endpoint);
-        localStorage.setItem('afterplay_cloud_key', key);
-
-        const payload = {
-            diaryReviews,
-            wantToListen,
-            topFiveAlbums,
-            collections,
-            challengeGoal,
-            updatedAt: new Date().toISOString()
-        };
-
-        try {
-            showToast({ title: "Transmitindo...", message: "Enviando acervo para a nuvem.", icon: "☁️", type: "info" });
-            const res = await fetch(endpoint, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(key ? { 'X-Master-Key': key, 'apikey': key, 'Authorization': `Bearer ${key}` } : {})
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                showToast({ title: "Nuvem Sincronizada!", message: "Acervo enviado para o banco com sucesso.", icon: "✨", type: "success" });
-                if (cloudSyncModal) cloudSyncModal.classList.add('hidden');
-            } else {
-                throw new Error("Erro na resposta do servidor.");
-            }
-        } catch (error) {
-            console.error(error);
-            showToast({ title: "Falha na Transmissão", message: "Não foi possível conectar com o endpoint.", icon: "⚠️", type: "favorite" });
-        }
-    });
-}
-
-if (fetchCloudSyncBtn) {
-    fetchCloudSyncBtn.addEventListener('click', async () => {
-        const endpoint = cloudEndpointInput.value.trim();
-        const key = cloudKeyInput.value.trim();
-
-        if (!endpoint) {
-            showToast({ title: "Endpoint Ausente", message: "Informe a URL do banco para puxar os dados.", icon: "⚠️", type: "info" });
-            return;
-        }
-
-        try {
-            showToast({ title: "Buscando...", message: "Puxando dados da nuvem.", icon: "🔄", type: "info" });
-            const res = await fetch(endpoint, {
-                method: 'GET',
-                headers: {
-                    ...(key ? { 'X-Master-Key': key, 'apikey': key, 'Authorization': `Bearer ${key}` } : {})
-                }
-            });
-
-            if (res.ok) {
-                const remote = await res.json();
-                const data = remote.record || remote;
-
-                if (data.diaryReviews) {
-                    diaryReviews = data.diaryReviews;
-                    wantToListen = data.wantToListen || [];
-                    topFiveAlbums = data.topFiveAlbums || [null, null, null, null, null];
-                    collections = data.collections || [];
-                    challengeGoal = data.challengeGoal || 50;
-
-                    saveAllToLocalStorage();
-                    renderAll();
-
-                    showToast({ title: "Sincronizado da Nuvem!", message: "Seus dados foram atualizados do banco.", icon: "✨", type: "success" });
-                    if (cloudSyncModal) cloudSyncModal.classList.add('hidden');
-                }
-            } else {
-                throw new Error("Falha ao recuperar dados da nuvem.");
-            }
-        } catch (error) {
-            console.error(error);
-            showToast({ title: "Erro de Download", message: "Não foi possível baixar os dados remotos.", icon: "⚠️", type: "favorite" });
-        }
-    });
-}
-
-// ============================================================================
-// 16. MÓDULO SUPABASE AUTH & CLOUD AUTO-SYNC (RELEASE 3.0)
-// ============================================================================
-
-// Credenciais do Supabase (Você pode usar o projeto padrão abaixo ou substituir pelas suas chaves)
-const SUPABASE_URL = localStorage.getItem('afterplay_sb_url') || 'https://xyzcompany.supabase.co';
-const SUPABASE_ANON_KEY = localStorage.getItem('afterplay_sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
-
-let currentUserSession = JSON.parse(localStorage.getItem('afterplay_user_session')) || null;
-let currentAuthMode = 'login'; // 'login' ou 'register'
-
-// Seletores DOM de Autenticação
-const openAuthModalBtn = document.getElementById('openAuthModalBtn');
-const authStatusDot = document.getElementById('authStatusDot');
-const authStatusText = document.getElementById('authStatusText');
-const authModal = document.getElementById('authModal');
-const closeAuthModalBtn = document.getElementById('closeAuthModalBtn');
-const authLoggedOutView = document.getElementById('authLoggedOutView');
-const authLoggedInView = document.getElementById('authLoggedInView');
-const tabLoginBtn = document.getElementById('tabLoginBtn');
-const tabRegisterBtn = document.getElementById('tabRegisterBtn');
-const authNameField = document.getElementById('authNameField');
-const authNameInput = document.getElementById('authNameInput');
-const authEmailInput = document.getElementById('authEmailInput');
-const authPasswordInput = document.getElementById('authPasswordInput');
-const submitAuthBtn = document.getElementById('submitAuthBtn');
-const sessionUserName = document.getElementById('sessionUserName');
-const sessionUserEmail = document.getElementById('sessionUserEmail');
-const forceSyncCloudBtn = document.getElementById('forceSyncCloudBtn');
-const logoutBtn = document.getElementById('logoutBtn');
-
-// Atualização Visual do Botão de Conexão no Cabeçalho
-function updateAuthUI() {
-    if (currentUserSession) {
-        if (openAuthModalBtn) {
-            openAuthModalBtn.classList.add('logged-in');
-            authStatusText.textContent = currentUserSession.name || currentUserSession.email.split('@')[0].toUpperCase();
-        }
-        if (authLoggedOutView) authLoggedOutView.classList.add('hidden');
-        if (authLoggedInView) authLoggedInView.classList.remove('hidden');
-        if (sessionUserName) sessionUserName.textContent = currentUserSession.name || "Ouvinte Afterplay";
-        if (sessionUserEmail) sessionUserEmail.textContent = currentUserSession.email;
-    } else {
-        if (openAuthModalBtn) {
-            openAuthModalBtn.classList.remove('logged-in');
-            authStatusText.textContent = "CONECTAR NUVEM";
-        }
-        if (authLoggedOutView) authLoggedOutView.classList.remove('hidden');
-        if (authLoggedInView) authLoggedInView.classList.add('hidden');
     }
 }
 
-// Abrir e Fechar Modal de Acesso
-if (openAuthModalBtn) {
-    openAuthModalBtn.addEventListener('click', () => {
-        updateAuthUI();
-        if (authModal) authModal.classList.remove('hidden');
+window.addEventListener('online', () => {
+    updateNetworkStatus();
+    showToast({
+        title: "Sinal Restabelecido",
+        message: "Conexão com o Supabase restabelecida.",
+        icon: "🟢",
+        type: "success",
+        duration: 3000
     });
-}
+});
 
-if (closeAuthModalBtn) {
-    closeAuthModalBtn.addEventListener('click', () => {
-        if (authModal) authModal.classList.add('hidden');
-    });
-}
+window.addEventListener('offline', updateNetworkStatus);
 
-// Alternar entre Login e Cadastro
-if (tabLoginBtn) {
-    tabLoginBtn.addEventListener('click', () => {
-        currentAuthMode = 'login';
-        tabLoginBtn.classList.add('active');
-        if (tabRegisterBtn) tabRegisterBtn.classList.remove('active');
-        if (authNameField) authNameField.style.display = 'none';
-        if (submitAuthBtn) submitAuthBtn.textContent = '⚡ ACESSAR MEU ACERVO';
-    });
-}
-
-if (tabRegisterBtn) {
-    tabRegisterBtn.addEventListener('click', () => {
-        currentAuthMode = 'register';
-        tabRegisterBtn.classList.add('active');
-        if (tabLoginBtn) tabLoginBtn.classList.remove('active');
-        if (authNameField) authNameField.style.display = 'flex';
-        if (submitAuthBtn) submitAuthBtn.textContent = '✨ CRIAR MINHA CONTA & CONECTAR';
-    });
-}
-
-// Disparo de Autenticação (Login / Cadastro)
-if (submitAuthBtn) {
-    submitAuthBtn.addEventListener('click', async () => {
-        const email = authEmailInput.value.trim();
-        const password = authPasswordInput.value.trim();
-        const name = authNameInput ? authNameInput.value.trim() : '';
-
-        if (!email || !password) {
-            showToast({ title: "Dados Incompletos", message: "Informe seu e-mail e senha.", icon: "⚠️", type: "info" });
-            return;
-        }
-
-        if (password.length < 6) {
-            showToast({ title: "Senha Curta", message: "A senha deve ter no mínimo 6 caracteres.", icon: "⚠️", type: "info" });
-            return;
-        }
-
-        submitAuthBtn.disabled = true;
-        submitAuthBtn.textContent = "CONECTANDO AO ESTÚDIO...";
-
-        try {
-            // Se o usuário estiver configurando seu projeto Supabase próprio, faz chamada real à API
-            if (SUPABASE_URL.includes('supabase.co') && !SUPABASE_URL.includes('xyzcompany')) {
-                const endpoint = currentAuthMode === 'register' 
-                    ? `${SUPABASE_URL}/auth/v1/signup` 
-                    : `${SUPABASE_URL}/auth/v1/token?grant_type=password`;
-
-                const res = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'apikey': SUPABASE_ANON_KEY
-                    },
-                    body: JSON.stringify({
-                        email,
-                        password,
-                        ...(currentAuthMode === 'register' && name ? { data: { name } } : {})
-                    })
-                });
-
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.msg || data.error_description || "Falha na autenticação.");
-
-                currentUserSession = {
-                    id: data.user ? data.user.id : data.id,
-                    email: data.user ? data.user.email : email,
-                    name: (data.user && data.user.user_metadata && data.user.user_metadata.name) || name || email.split('@')[0],
-                    token: data.access_token
-                };
-            } else {
-                // Modo Standalone Local-Sync: autenticação instantânea com persistência de perfil
-                currentUserSession = {
-                    id: 'usr_' + btoa(email).replace(/[^a-zA-Z0-9]/g, '').substring(0, 12),
-                    email: email,
-                    name: name || (email.split('@')[0].toUpperCase()),
-                    token: 'tok_' + Date.now()
-                };
-            }
-
-            localStorage.setItem('afterplay_user_session', JSON.stringify(currentUserSession));
-            updateAuthUI();
-
-            showToast({
-                title: "Estúdio Conectado!",
-                message: `Bem-vindo de volta, ${currentUserSession.name}!`,
-                icon: "🟢",
-                type: "success"
-            });
-
-            // Baixa dados da nuvem se existirem ou envia acervo atual
-            await pullUserDataFromCloud();
-            if (authModal) authModal.classList.add('hidden');
-
-        } catch (error) {
-            console.error(error);
-            showToast({
-                title: "Erro no Acesso",
-                message: error.message || "Não foi possível validar suas credenciais.",
-                icon: "⚠️",
-                type: "favorite"
-            });
-        } finally {
-            submitAuthBtn.disabled = false;
-            submitAuthBtn.textContent = currentAuthMode === 'register' ? '✨ CRIAR MINHA CONTA & CONECTAR' : '⚡ ACESSAR MEU ACERVO';
-        }
-    });
-}
-
-// Encerrar Sessão (Logout)
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
-        if (confirm("Deseja desconectar sua conta da nuvem deste aparelho? Seus dados continuam salvos no banco remoto.")) {
-            currentUserSession = null;
-            localStorage.removeItem('afterplay_user_session');
-            updateAuthUI();
-            if (authModal) authModal.classList.add('hidden');
-            showToast({ title: "Sessão Encerrada", message: "Estúdio em modo local.", icon: "🚪", type: "info" });
-        }
-    });
-}
-
-// Forçar Sincronização Manual
-if (forceSyncCloudBtn) {
-    forceSyncCloudBtn.addEventListener('click', async () => {
-        showToast({ title: "Sincronizando...", message: "Comunicando com a nuvem.", icon: "🔄", type: "info" });
-        await syncUserDataToCloud();
-        showToast({ title: "Nuvem Atualizada!", message: "Acervo e diário sincronizados.", icon: "✨", type: "success" });
-    });
-}
-
-// ENVIO SILENCIOSO PARA A NUVEM (AUTO-SYNC)
-async function syncUserDataToCloud() {
-    if (!currentUserSession) return;
-
-    const payload = {
-        userId: currentUserSession.id,
-        userEmail: currentUserSession.email,
-        diaryReviews,
-        wantToListen,
-        topFiveAlbums,
-        collections,
-        challengeGoal,
-        updatedAt: new Date().toISOString()
-    };
-
-    // Salva no cofre de nuvem do usuário no localStorage com namespace seguro
-    localStorage.setItem(`afterplay_cloud_${currentUserSession.id}`, JSON.stringify(payload));
-
-    // Se houver endpoint REST configurado, transmite silenciosamente via PUT/POST
-    const customEndpoint = localStorage.getItem('afterplay_cloud_endpoint');
-    const customKey = localStorage.getItem('afterplay_cloud_key');
-    if (customEndpoint) {
-        try {
-            await fetch(customEndpoint, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(customKey ? { 'X-Master-Key': customKey, 'apikey': customKey, 'Authorization': `Bearer ${customKey}` } : {})
-                },
-                body: JSON.stringify(payload)
-            });
-        } catch (e) {
-            console.warn("Auto-sync remoto em fila silenciosa.");
-        }
-    }
-}
-
-// DOWNLOAD DA NUVEM AO CONECTAR (PULL DATA)
-async function pullUserDataFromCloud() {
-    if (!currentUserSession) return;
-
-    const cachedCloud = localStorage.getItem(`afterplay_cloud_${currentUserSession.id}`);
-    if (cachedCloud) {
-        try {
-            const data = JSON.parse(cachedCloud);
-            if (data.diaryReviews && data.diaryReviews.length > 0) {
-                diaryReviews = data.diaryReviews;
-                wantToListen = data.wantToListen || [];
-                topFiveAlbums = data.topFiveAlbums || [null, null, null, null, null];
-                collections = data.collections || [];
-                challengeGoal = data.challengeGoal || 50;
-
-                localStorage.setItem('afterplay_diary', JSON.stringify(diaryReviews));
-                localStorage.setItem('afterplay_want', JSON.stringify(wantToListen));
-                localStorage.setItem('afterplay_top5', JSON.stringify(topFiveAlbums));
-                localStorage.setItem('afterplay_collections', JSON.stringify(collections));
-                renderAll();
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }
-}
-
-// --- 17. PERSISTÊNCIA & INICIALIZAÇÃO GERAL ---
-function saveAllToLocalStorage() {
-    localStorage.setItem('afterplay_diary', JSON.stringify(diaryReviews));
-    localStorage.setItem('afterplay_want', JSON.stringify(wantToListen));
-    localStorage.setItem('afterplay_top5', JSON.stringify(topFiveAlbums));
-    localStorage.setItem('afterplay_collections', JSON.stringify(collections));
-
-    // Auto-sync automático em segundo plano se houver login ativo!
-    syncUserDataToCloud();
-}
-
-function renderAll() {
-    renderDiary();
-    renderWantList();
-    renderCollections();
-    renderProfileStats();
-}
-
+// --- INICIALIZAÇÃO ÚNICA DO ESTÚDIO ---
 if (sortDiarySelect) sortDiarySelect.addEventListener('change', renderDiary);
 if (filterDiaryInput) filterDiaryInput.addEventListener('input', renderDiary);
 
@@ -2964,12 +3083,12 @@ if (closeModalBtn) {
     closeModalBtn.addEventListener('click', () => {
         stopAudio();
         if (reviewModal) reviewModal.classList.add('hidden');
-        editingReviewIndex = null;
+        editingReviewId = null;
     });
 }
 
-// Inicialização Geral do Sistema
 buildStarPicker();
-renderAll();
-updateAuthUI();
+checkAuthSession();
+checkRecoveryHash();
+updateNetworkStatus();
 handleRouting();
