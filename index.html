@@ -4,24 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Afterplay — Your Music Listening Diary</title>
+    
+    <!-- FAVICON DA ABA DO NAVEGADOR -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="alternate icon" type="image/png" href="favicon.png-removebg-preview.png">
+
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-    <!-- 1. CABEÇALHO GLOBAL (CLEAN & MINIMALISTA) -->
+    <!-- 1. CABEÇALHO GLOBAL (MINIMALISTA COM ACESSO RÁPIDO À BUSCA) -->
     <header class="navbar">
         <div class="logo">
             <span class="rec-dot"></span>
             <a href="#/" class="logo-link"><h1>AFTER<span>PLAY</span></h1></a>
         </div>
 
-        <div class="search-box">
-            <input type="text" id="searchInput" placeholder="🔍 Buscar álbum ou artista...">
-            <button id="searchBtn">Buscar</button>
-        </div>
-
         <div class="navbar-right">
+            <!-- Botão de Atalho Rápido para a Página Dedicada de Busca -->
+            <a href="#/busca" class="quick-search-trigger">
+                <span>🔍</span>
+                <span class="quick-search-text">Buscar Álbuns ou Artistas...</span>
+                <kbd class="quick-search-kbd">/</kbd>
+            </a>
+
             <div class="user-profile">
                 <span class="status-badge">ON AIR</span>
                 <span class="username">Erick Nava</span>
@@ -47,8 +54,12 @@
         <nav class="drawer-nav">
             <a href="#/" class="drawer-link active-route" data-route="home">
                 <span class="drawer-icon">📓</span>
-                <span class="drawer-text">Diário de Reviews</span>
+                <span class="drawer-text">Home & Diário</span>
                 <span class="drawer-badge" id="diaryCount">0</span>
+            </a>
+            <a href="#/busca" class="drawer-link" data-route="search">
+                <span class="drawer-icon">🔍</span>
+                <span class="drawer-text">Buscar & Acervo</span>
             </a>
             <a href="#/want-to-listen" class="drawer-link" data-route="want">
                 <span class="drawer-icon">🕒</span>
@@ -69,7 +80,7 @@
         <div class="drawer-footer">
             <div class="drawer-user-info">
                 <strong>Erick Nava</strong>
-                <span>Estúdio Manaus // Afterplay v1.5</span>
+                <span>Estúdio Manaus // Afterplay v2.0</span>
             </div>
         </div>
     </aside>
@@ -77,27 +88,33 @@
     <!-- 3. CONTAINER DE ROTEAMENTO (VIEWS) -->
     <main class="container">
 
-        <!-- PAINEL GLOBAL DE RESULTADOS DA BUSCA -->
-        <section id="searchResultsSection" class="search-results-section hidden">
-            <div class="section-header">
-                <h2 id="searchResultsTitle">🔎 RESULTADOS DA BUSCA</h2>
-                <button id="closeSearchBtn" class="close-search-btn">✕ Fechar Busca</button>
-            </div>
-            <div id="searchResultsGrid" class="search-grid"></div>
-        </section>
-
-        <!-- VIEW 1: HOME & DIÁRIO (#/ ou #/diario) -->
+        <!-- VIEW 1: HOME & DIÁRIO COM HERO EDITORIAL (#/ ou #/diario) -->
         <div id="viewHome" class="router-view">
-            <!-- MURAL TOP 5 ÁLBUNS DA VIDA -->
-            <section class="top-five-section">
-                <div class="section-header">
-                    <h2>🔥 MEU TOP 5 ÁLBUNS DA VIDA</h2>
-                    <span class="studio-tag">TUBE AMP SELECTION // 01-05</span>
+            <!-- HERO SECTION: APRESENTAÇÃO E IDENTIDADE DA MARCA -->
+            <section class="brand-hero-section">
+                <div class="hero-badge-row">
+                    <span class="hero-badge">AFTERPLAY STUDIO ARCHIVE</span>
+                    <span class="hero-subbadge">YOUR MUSIC LISTENING DIARY</span>
                 </div>
-                <div class="top-five-grid" id="topFiveGrid"></div>
+                <h1 class="hero-headline">
+                    O som termina.<br>
+                    <span>A experiência começa.</span>
+                </h1>
+                <p class="hero-manifesto">
+                    O <strong>Afterplay</strong> é o seu santuário analógico para audição atenta. Um espaço dedicado a catalogar impressões faixa a faixa, preservar memórias de discos marcantes, organizar coleções temáticas e celebrar a arte da música gravada.
+                </p>
+                <div class="hero-actions-row">
+                    <a href="#/busca" class="hero-cta-btn">🔍 Explorar Acervo & Discografias</a>
+                    <a href="#/perfil" class="hero-secondary-btn">📊 Ver Minhas Estatísticas</a>
+                </div>
             </section>
 
             <!-- BARRA DE FILTROS & ORDENAÇÃO DO DIÁRIO -->
+            <div class="section-header" style="margin-top: 36px;">
+                <h2>📓 DIÁRIO DE AUDIÇÕES RECENTES</h2>
+                <span class="studio-tag">CATALOGED REVIEWS</span>
+            </div>
+
             <div id="diaryControls" class="diary-controls-bar">
                 <div class="filter-group">
                     <label for="sortDiarySelect">Ordenar por:</label>
@@ -117,7 +134,60 @@
             <section class="diary-section" id="diarySection"></section>
         </div>
 
-        <!-- VIEW 2: WANT TO LISTEN (#/want-to-listen) -->
+        <!-- VIEW 2: PÁGINA ESPECÍFICA DE BUSCAS & DISCOGRAFIAS (#/busca) -->
+        <div id="viewSearch" class="router-view hidden">
+            <div class="search-page-header">
+                <div class="view-header" style="margin-bottom: 16px;">
+                    <h2>🔍 BUSCA DE ÁLBUNS & DISCOGRAFIAS</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">
+                        Consulte o acervo mundial de lançamentos, conheça discografias cronológicas completas e arquive obras no seu diário.
+                    </p>
+                </div>
+
+                <!-- Barra Central de Busca da Página -->
+                <div class="dedicated-search-box">
+                    <input type="text" id="dedicatedSearchInput" placeholder="Digite o nome de um álbum ou artista (ex: Djavan, Daft Punk, Milton Nascimento, Pink Floyd)...">
+                    <button id="dedicatedSearchBtn">Pesquisar</button>
+                </div>
+            </div>
+
+            <!-- Painel de Resultados da Página de Busca -->
+            <div id="dedicatedSearchResultsArea" class="search-page-results">
+                <div class="section-header" style="margin-top: 24px;">
+                    <div class="search-breadcrumbs">
+                        <h3 id="searchResultsTitle" style="font-size: 1.1rem; color: var(--text-primary);">DIGITE ACIMA PARA PESQUISAR</h3>
+                        <span id="discographyArtistName" class="discography-breadcrumb hidden">› Discografia Completa</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button id="backToSearchBtn" class="close-search-btn hidden">← Voltar aos Resultados</button>
+                    </div>
+                </div>
+
+                <!-- Bloco de Artistas Encontrados -->
+                <div id="artistsBlock" class="results-subblock hidden">
+                    <span class="subblock-title">🎙️ ARTISTAS CORRESPONDENTES</span>
+                    <div id="artistsResultsGrid" class="artists-grid"></div>
+                </div>
+
+                <!-- Bloco de Álbuns / Discografia Completa -->
+                <div id="albumsBlock" class="results-subblock" style="margin-top: 24px;">
+                    <div class="subblock-header-row">
+                        <span id="albumsBlockTitle" class="subblock-title">💽 ÁLBUNS</span>
+                        <div id="discographySortControl" class="hidden">
+                            <select id="sortDiscographySelect" class="studio-select" style="font-size: 0.78rem; padding: 4px 10px;">
+                                <option value="yearAsc">Cronológica (Antigos ➔ Novos)</option>
+                                <option value="yearDesc">Mais Recentes Primeiro</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="searchResultsGrid" class="search-grid">
+                        <p style="color: #9E958E; font-size: 0.85rem;">Nenhuma busca ativa no momento. Digite um termo acima para iniciar.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 3: WANT TO LISTEN (#/want-to-listen) -->
         <div id="viewWant" class="router-view hidden">
             <div class="view-header">
                 <div>
@@ -128,19 +198,48 @@
             <div class="search-grid" id="wantGrid" style="margin-top: 20px;"></div>
         </div>
 
-        <!-- VIEW 3: COLEÇÕES TEMÁTICAS (#/colecoes) -->
+<!-- VIEW 4: COLEÇÕES TEMÁTICAS (#/colecoes) -->
         <div id="viewCollections" class="router-view hidden">
-            <div class="collections-toolbar">
-                <div>
-                    <h2 style="font-size: 1.15rem; color: var(--text-primary); letter-spacing: 1px;">📁 MINHAS PASTAS TEMÁTICAS</h2>
-                    <p style="font-size: 0.85rem; color: var(--text-muted);">Curadorias personalizadas em gavetas conceituais.</p>
+            <!-- 1. TELA PRINCIPAL: TODAS AS COLEÇÕES -->
+            <div id="collectionsMainContainer">
+                <div class="collections-toolbar">
+                    <div>
+                        <h2 style="font-size: 1.15rem; color: var(--text-primary); letter-spacing: 1px;">📁 MINHAS PASTAS TEMÁTICAS</h2>
+                        <p style="font-size: 0.85rem; color: var(--text-muted);">Curadorias personalizadas em gavetas conceituais. Clique em uma pasta para abrir.</p>
+                    </div>
+                    <button id="openCreateCollectionBtn" class="btn-create-collection">➕ Nova Coleção</button>
                 </div>
-                <button id="openCreateCollectionBtn" class="btn-create-collection">➕ Nova Coleção</button>
+                <div id="collectionsGrid" class="collections-grid"></div>
             </div>
-            <div id="collectionsGrid" class="collections-grid"></div>
+
+            <!-- 2. TELA DETALHADA: UMA COLEÇÃO ESPECÍFICA -->
+            <div id="collectionDetailContainer" class="hidden">
+                <div class="collection-detail-header">
+                    <button id="backToCollectionsBtn" class="close-search-btn" style="margin-bottom: 12px;">← Voltar às Coleções</button>
+                    <div class="collection-detail-meta">
+                        <div>
+                            <span class="studio-tag" id="collectionDetailBadge">PASTA TEMÁTICA</span>
+                            <h2 id="collectionDetailTitle" style="font-size: 1.6rem; color: var(--text-primary); margin: 6px 0 4px 0;">Nome da Coleção</h2>
+                            <p id="collectionDetailDesc" style="color: var(--text-muted); font-size: 0.9rem; max-width: 700px;">Descrição da coleção...</p>
+                        </div>
+                        <div class="collection-detail-kpis">
+                            <div class="stat-box" style="padding: 10px 18px;">
+                                <strong id="collectionDetailCount">0</strong>
+                                <span>Discos</span>
+                            </div>
+                            <div class="stat-box" style="padding: 10px 18px;">
+                                <strong id="collectionDetailAvg">0.0 ★</strong>
+                                <span>Média</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="collectionDetailGrid" class="search-grid" style="margin-top: 24px;"></div>
+            </div>
         </div>
 
-<!-- VIEW 4: PERFIL & ESTATÍSTICAS (#/perfil) -->
+        <!-- VIEW 5: PERFIL & ESTATÍSTICAS (#/perfil - COM O TOP 5 DA VIDA TRANSFERIDO) -->
         <div id="viewProfile" class="router-view hidden">
             <!-- CARTÃO DE IDENTIDADE DO OUVINTE -->
             <div class="profile-card">
@@ -172,7 +271,16 @@
                 </div>
             </div>
 
-            <!-- DESAFIO ANUAL DE AUDIÇÃO 2026 (GOODREADS CHALLENGE) -->
+            <!-- MURAL TOP 5 ÁLBUNS DA VIDA (TRANSFERIDO PARA O PERFIL) -->
+            <section class="top-five-section" style="margin-top: 28px;">
+                <div class="section-header">
+                    <h2>🔥 MEU TOP 5 ÁLBUNS DA VIDA</h2>
+                    <span class="studio-tag">TUBE AMP SELECTION // 01-05</span>
+                </div>
+                <div class="top-five-grid" id="topFiveGrid"></div>
+            </section>
+
+            <!-- DESAFIO ANUAL DE AUDIÇÃO 2026 -->
             <div class="challenge-card">
                 <div class="challenge-header">
                     <div>
@@ -187,7 +295,6 @@
                     <button id="editGoalBtn" class="btn-secondary-action" style="margin-top: 0;">🎯 Ajustar Meta</button>
                 </div>
 
-                <!-- Barra de Progresso Analógica com Luz Valvulada -->
                 <div class="progress-track">
                     <div id="progressBarFill" class="progress-fill" style="width: 0%;"></div>
                 </div>
@@ -201,9 +308,138 @@
                     </span>
                 </div>
             </div>
+
+            <!-- DASHBOARD DE ESTATÍSTICAS MUSICAIS ANALÍTICAS -->
+            <section class="stats-dashboard-section">
+                <div class="section-header" style="margin-top: 32px;">
+                    <h2>📊 ANÁLISE DO ACERVO MUSICAL</h2>
+                    <span class="studio-tag">AUDIO METRICS // DIARY INSIGHTS</span>
+                </div>
+
+                <div class="analytics-grid">
+                    <!-- 1. HISTOGRAMA DE NOTAS -->
+                    <div class="analytics-card">
+                        <div class="analytics-card-header">
+                            <span class="subblock-title">DISTRIBUIÇÃO DE NOTAS</span>
+                            <span class="studio-tag" id="mostFrequentRatingTag">Pico: --</span>
+                        </div>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;">
+                            Frequência das notas concedidas de 0.5 a 5.0 estrelas.
+                        </p>
+                        <div id="ratingsHistogram" class="ratings-histogram-chart"></div>
+                    </div>
+
+                    <!-- 2. DÉCADAS MAIS OUVIDAS -->
+                    <div class="analytics-card">
+                        <div class="analytics-card-header">
+                            <span class="subblock-title">VIAGEM NO TEMPO (DÉCADAS)</span>
+                            <span class="studio-tag" id="dominantDecadeTag">Dominante: --</span>
+                        </div>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;">
+                            Distribuição dos lançamentos por períodos históricos.
+                        </p>
+                        <div id="decadesList" class="decades-progress-list"></div>
+                    </div>
+                </div>
+
+                <!-- 3. TOP ARTISTAS MAIS CATALOGADOS -->
+                <div class="analytics-card" style="margin-top: 20px;">
+                    <div class="analytics-card-header">
+                        <span class="subblock-title">TOP ARTISTAS MAIS CATALOGADOS</span>
+                        <span class="studio-tag">LEAD ARTISTS</span>
+                    </div>
+                    <div id="topArtistsList" class="top-artists-ranking"></div>
+                </div>
+            </section>
+
+            <!-- SEÇÃO RETROSPECTIVAS MUSICAIS: MENSAL & ANUAL -->
+            <section class="wrapped-launch-section">
+                <div class="wrapped-launch-card">
+                    <div class="wrapped-launch-info">
+                        <div class="challenge-title-row">
+                            <span class="challenge-badge">✨ AFTERPLAY WRAPPED</span>
+                            <span class="pace-badge" style="background: rgba(245, 158, 11, 0.15); color: var(--amber-glow); border-color: rgba(245, 158, 11, 0.4);">RETROSPECTIVA DE ESTÚDIO</span>
+                        </div>
+                        <h3 style="font-size: 1.25rem; color: var(--text-primary); margin-top: 8px;">
+                            Reviva seus momentos musicais
+                        </h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+                            Compile seus discos mais marcantes, artistas dominantes e médias de avaliação em edições mensais ou no compilado anual.
+                        </p>
+                    </div>
+
+                    <div class="wrapped-controls">
+                        <div class="wrapped-toggle-group">
+                            <button type="button" id="wrappedTypeMonthlyBtn" class="btn-toggle active">📅 Mensal</button>
+                            <button type="button" id="wrappedTypeYearlyBtn" class="btn-toggle">🏆 Anual</button>
+                        </div>
+
+                        <div id="monthlySelectors" class="wrapped-select-row">
+                            <select id="wrappedMonthSelect" class="studio-select">
+                                <option value="10">Outubro</option>
+                                <option value="09">Setembro</option>
+                                <option value="08">Agosto</option>
+                                <option value="07">Julho</option>
+                                <option value="06">Junho</option>
+                                <option value="05">Maio</option>
+                                <option value="04">Abril</option>
+                                <option value="03">Março</option>
+                                <option value="02">Fevereiro</option>
+                                <option value="01">Janeiro</option>
+                                <option value="12">Dezembro</option>
+                                <option value="11">Novembro</option>
+                            </select>
+                            <select id="wrappedYearSelect" class="studio-select">
+                                <option value="2026">2026</option>
+                                <option value="2025">2025</option>
+                            </select>
+                        </div>
+
+                        <div id="yearlySelectors" class="wrapped-select-row hidden">
+                            <select id="wrappedFullYearSelect" class="studio-select" style="width: 100%;">
+                                <option value="2026">Ano Completo de 2026</option>
+                                <option value="2025">Ano Completo de 2025</option>
+                            </select>
+                        </div>
+
+                        <button id="openWrappedBtn" class="btn-save-review" style="margin-top: 10px; width: 100%; padding: 10px 18px;">
+                            ✨ ABRIR RETROSPECTIVA
+                        </button>
+                    </div>
+                </div>
+            </section>
+<!-- SEÇÃO DE PORTABILIDADE & BACKUP (SPRINT 14) -->
+            <section class="backup-section" style="margin-top: 24px;">
+                <div class="analytics-card">
+                    <div class="analytics-card-header">
+                        <span class="subblock-title">💾 PORTABILIDADE & BACKUP DE DADOS</span>
+                        <span class="studio-tag">STORAGE & CLOUD VAULT</span>
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 18px;">
+                        Garanta a segurança das suas audições, notas e coleções exportando um backup completo ou transferindo seus dados para outro dispositivo.
+                    </p>
+
+                    <div class="backup-actions-row">
+                        <button id="exportBackupBtn" class="btn-save-review" style="width: auto; padding: 10px 20px;">
+                            📥 Baixar Backup Local (JSON)
+                        </button>
+
+                        <label for="importBackupInput" class="btn-secondary-action" style="margin-top: 0; display: inline-flex; align-items: center; cursor: pointer; padding: 10px 18px;">
+                            📤 Restaurar Arquivo de Backup
+                            <input type="file" id="importBackupInput" accept=".json" style="display: none;">
+                        </label>
+
+                        <button id="cloudSyncModalBtn" class="btn-secondary-action" style="margin-top: 0; padding: 10px 18px;">
+                            ☁️ Sincronizar Nuvem (Cloud Sync)
+                        </button>
+                    </div>
+                </div>
+            </section>
         </div>
 
-    <!-- 4. MODAIS -->
+    </main>
+
+    <!-- 4. MODAIS DO SISTEMA -->
     <!-- Modal de Avaliação / Edição -->
     <div id="reviewModal" class="modal-overlay hidden">
         <div class="modal-box">
@@ -273,17 +509,14 @@
         </div>
     </div>
 
-<!-- 6. MODAL DO GERADOR DE CARD VISUAL EM CANVAS (COM CUSTOMIZAÇÕES) -->
+    <!-- Modal Card Studio (Canvas) -->
     <div id="cardStudioModal" class="modal-overlay hidden">
         <div class="modal-box card-studio-box">
             <div class="modal-header">
                 <span class="studio-tag">AFTERPLAY STUDIO // SHARE CARD CUSTOMIZER</span>
                 <button id="closeCardStudioBtn" class="close-search-btn">✕</button>
             </div>
-
-            <!-- CONTROLES DE CUSTOMIZAÇÃO DO CARD -->
             <div class="card-controls-panel">
-                <!-- Seletor de Modelo (Layout) -->
                 <div class="control-subgroup">
                     <label>LAYOUT:</label>
                     <div class="card-style-toggles">
@@ -291,29 +524,96 @@
                         <button type="button" class="btn-toggle" id="layoutMinimalBtn">✨ Minimalista</button>
                     </div>
                 </div>
-
-                <!-- Seletor de Tema / Fundo -->
                 <div class="control-subgroup">
                     <label>FUNDO & TEMA:</label>
                     <div class="theme-palette-picker">
                         <button type="button" class="theme-color-dot active" data-theme="midnight" title="Midnight Espresso" style="background: #181413; border-color: #F59E0B;"></button>
-                        <button type="button" class="theme-color-dot" data-theme="tubeglow" title="Tube Glow (Âmbar Quente)" style="background: radial-gradient(circle, #78350f, #121010);"></button>
-                        <button type="button" class="theme-color-dot" data-theme="deepvelvet" title="Deep Velvet (Índigo Noturno)" style="background: linear-gradient(135deg, #1e1b4b, #0f0e17);"></button>
-                        <button type="button" class="theme-color-dot" data-theme="graphite" title="Matte Graphite (Console)" style="background: #1f2228;"></button>
+                        <button type="button" class="theme-color-dot" data-theme="tubeglow" title="Tube Glow" style="background: radial-gradient(circle, #78350f, #121010);"></button>
+                        <button type="button" class="theme-color-dot" data-theme="deepvelvet" title="Deep Velvet" style="background: linear-gradient(135deg, #1e1b4b, #0f0e17);"></button>
+                        <button type="button" class="theme-color-dot" data-theme="graphite" title="Matte Graphite" style="background: #1f2228;"></button>
                     </div>
                 </div>
             </div>
-            
             <div class="card-preview-container">
                 <canvas id="shareCanvas" width="1080" height="1350" class="canvas-preview"></canvas>
             </div>
-
             <div class="card-studio-actions">
                 <span class="studio-tag" id="cardResolutionLabel">1080x1350 // HD PNG</span>
                 <button id="downloadCardBtn" class="btn-save-review" style="width: auto; padding: 10px 24px;">📥 BAIXAR IMAGEM (PNG)</button>
             </div>
         </div>
     </div>
+
+    <!-- Modal Afterplay Wrapped -->
+    <div id="wrappedModal" class="modal-overlay hidden">
+        <div class="modal-box wrapped-modal-box">
+            <div class="modal-header">
+                <span class="studio-tag" id="wrappedModalTag">AFTERPLAY WRAPPED // RETROSPECTIVA MENSAL</span>
+                <button id="closeWrappedBtn" class="close-search-btn">✕ Fechar</button>
+            </div>
+            <div class="wrapped-content-scroll">
+                <div class="wrapped-hero">
+                    <span class="wrapped-subtitle" id="wrappedPeriodSubtitle">OUTUBRO DE 2026</span>
+                    <h2 class="wrapped-main-title" id="wrappedHeroTitle">Sua Trilha Sonora</h2>
+                </div>
+                <div class="wrapped-kpi-row">
+                    <div class="kpi-card">
+                        <strong id="wrappedKpiCount">0</strong>
+                        <span>Discos Ouvidos</span>
+                    </div>
+                    <div class="kpi-card">
+                        <strong id="wrappedKpiAvg">0.0 ★</strong>
+                        <span>Nota Média</span>
+                    </div>
+                    <div class="kpi-card">
+                        <strong id="wrappedKpiArtist" style="font-size: 1rem; color: #38bdf8;">--</strong>
+                        <span>Artista Dominante</span>
+                    </div>
+                </div>
+                <div class="wrapped-highlight-card">
+                    <span class="subblock-title" style="color: var(--amber-glow);">🏆 DISCO DO PERÍODO (MAIOR NOTA)</span>
+                    <div id="wrappedTopAlbumContainer" class="wrapped-album-spotlight"></div>
+                </div>
+                <div class="wrapped-mosaic-section">
+                    <span class="subblock-title">DISCOS DO PERÍODO</span>
+                    <div id="wrappedCoversGrid" class="wrapped-covers-grid"></div>
+                </div>
+            </div>
+            <div class="wrapped-actions-bar">
+                <span class="studio-tag">SHAREABLE STORY PÔSTER (1080x1350)</span>
+                <button id="exportWrappedCardBtn" class="btn-save-review" style="width: auto; padding: 10px 22px;">📥 BAIXAR PÔSTER WRAPPED (PNG)</button>
+            </div>
+        </div>
+    </div>
+<!-- MODAL DE CONFIGURAÇÃO CLOUD SYNC -->
+    <div id="cloudSyncModal" class="modal-overlay hidden">
+        <div class="modal-box" style="max-width: 520px;">
+            <div class="modal-header">
+                <span class="studio-tag">AFTERPLAY CLOUD VAULT // SYNC</span>
+                <button id="closeCloudModalBtn" class="close-search-btn">✕</button>
+            </div>
+            <div style="margin: 16px 0;">
+                <h3 style="font-size: 1.1rem; color: var(--amber-glow); margin-bottom: 6px;">Nuvem do Estúdio Afterplay</h3>
+                <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4;">
+                    Conecte seu cofre em nuvem (compatível com Supabase REST API ou JSONBin). Seus dados ficam salvos em um banco remoto e são baixados automaticamente em qualquer aparelho.
+                </p>
+
+                <div style="margin-top: 14px;">
+                    <label style="font-size: 0.8rem; color: var(--text-muted);">URL do Endpoint / Bin ID:</label>
+                    <input type="text" id="cloudEndpointInput" class="studio-input" placeholder="https://api.jsonbin.io/v3/b/... ou Supabase REST">
+                    
+                    <label style="font-size: 0.8rem; color: var(--text-muted); margin-top: 10px; display: block;">Chave de Acesso / Master Key:</label>
+                    <input type="password" id="cloudKeyInput" class="studio-input" placeholder="Cole sua API Key aqui">
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 18px;">
+                    <button id="saveCloudSyncBtn" class="btn-save-review" style="flex: 1;">☁️ Enviar Acervo para Nuvem</button>
+                    <button id="fetchCloudSyncBtn" class="btn-secondary-action" style="flex: 1; margin-top: 0;">🔄 Baixar da Nuvem</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- CONTAINER DE TOASTS -->
     <div id="toastContainer" class="toast-container"></div>
 
