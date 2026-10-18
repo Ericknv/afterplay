@@ -2458,3 +2458,447 @@ body {
     gap: 12px;
     align-items: center;
 }
+/* ==========================================================================
+   20. CARD STUDIO 3.0: ASPECT RATIOS & TOP 5 POSTER (RELEASE 3.0)
+   ========================================================================== */
+.card-preview-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #0b0908;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 16px;
+    max-height: 480px;
+    overflow: hidden;
+}
+
+.canvas-preview {
+    max-width: 100%;
+    max-height: 440px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+}
+/* ==========================================================================
+   21. AUDIO EXPERIENCE: PREVIEWS DE 30s & PLAYER DE ESTÚDIO (RELEASE 3.0)
+   ========================================================================== */
+.track-play-btn {
+    background-color: var(--bg-obsidian);
+    border: 1px solid var(--border-subtle);
+    color: var(--amber-glow);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-right: 6px;
+}
+
+.track-play-btn:hover {
+    background-color: var(--amber-glow);
+    color: #121010;
+    transform: scale(1.1);
+}
+
+.track-play-btn.playing {
+    background-color: var(--amber-glow);
+    color: #121010;
+    box-shadow: 0 0 10px var(--amber-soft);
+}
+
+/* Barra do Mini Player de Estúdio */
+.studio-player-bar {
+    background: linear-gradient(90deg, #1b1615, #141110);
+    border: 1px solid var(--amber-glow);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.12);
+    animation: fadeInPlayer 0.3s ease;
+}
+
+@keyframes fadeInPlayer {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.player-left-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.player-master-btn {
+    background: var(--amber-glow);
+    color: #121010;
+    border: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+}
+
+.player-master-btn:hover {
+    transform: scale(1.08);
+}
+
+.player-track-info {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.player-track-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.player-audio-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--amber-glow);
+    letter-spacing: 1px;
+}
+
+/* Equalizador Gráfico Analógico */
+.vu-equalizer {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.eq-bar {
+    width: 3px;
+    background-color: var(--amber-glow);
+    border-radius: 2px;
+    height: 4px;
+    transition: height 0.1s ease;
+}
+
+.vu-equalizer.active .eq-bar:nth-child(1) { animation: bounceEq 0.5s infinite ease-in-out alternate; }
+.vu-equalizer.active .eq-bar:nth-child(2) { animation: bounceEq 0.35s infinite ease-in-out alternate 0.1s; }
+.vu-equalizer.active .eq-bar:nth-child(3) { animation: bounceEq 0.6s infinite ease-in-out alternate 0.2s; }
+.vu-equalizer.active .eq-bar:nth-child(4) { animation: bounceEq 0.4s infinite ease-in-out alternate 0.15s; }
+.vu-equalizer.active .eq-bar:nth-child(5) { animation: bounceEq 0.55s infinite ease-in-out alternate 0.05s; }
+
+@keyframes bounceEq {
+    0% { height: 4px; }
+    100% { height: 18px; }
+}
+
+/* Trilha de Progresso do Áudio */
+.player-progress-track {
+    width: 110px;
+    height: 6px;
+    background-color: var(--bg-obsidian);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.player-progress-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #b45309, var(--amber-glow));
+    transition: width 0.15s linear;
+}
+
+.player-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    min-width: 32px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+/* ==========================================================================
+   22. LISTENING MOODS & VIBE TAGS (RELEASE 3.0)
+   ========================================================================== */
+/* Barra de Filtro de Vibes no Diário */
+.vibe-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.vibe-filter-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--amber-glow);
+    letter-spacing: 1px;
+    flex-shrink: 0;
+}
+
+.vibe-chips-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+}
+
+.vibe-chip {
+    background-color: var(--bg-obsidian);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    padding: 5px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.vibe-chip:hover {
+    border-color: var(--amber-glow);
+    color: var(--text-primary);
+}
+
+.vibe-chip.active {
+    background-color: var(--amber-soft);
+    color: var(--amber-glow);
+    border-color: var(--amber-glow);
+    font-weight: 700;
+}
+
+/* Seletor de Vibes na Modal de Avaliação */
+.vibe-picker-group {
+    margin-top: 14px;
+    margin-bottom: 16px;
+}
+
+.vibe-picker-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.vibe-select-chip {
+    background-color: var(--bg-obsidian);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.vibe-select-chip:hover {
+    border-color: var(--amber-glow);
+    color: var(--text-primary);
+}
+
+.vibe-select-chip.selected {
+    background-color: rgba(245, 158, 11, 0.15);
+    border-color: var(--amber-glow);
+    color: var(--amber-glow);
+    font-weight: 700;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+
+/* Badges de Vibe no Card do Diário */
+.diary-vibes-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.vibe-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    background-color: rgba(245, 158, 11, 0.08);
+    color: var(--amber-glow);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+/* Ranking de Vibes no Perfil */
+.vibe-ranking-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.vibe-rank-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.vibe-rank-name {
+    width: 140px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.vibe-rank-track {
+    flex: 1;
+    height: 8px;
+    background-color: var(--bg-obsidian);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.vibe-rank-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ea580c, var(--amber-glow));
+    border-radius: 6px;
+    transition: width 0.5s ease;
+}
+
+.vibe-rank-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    width: 32px;
+    text-align: right;
+}
+/* ==========================================================================
+   23. PERFIL DE ACESSO, AUTH & CLOUD SYNC (RELEASE 3.0)
+   ========================================================================== */
+.user-auth-control {
+    display: flex;
+    align-items: center;
+}
+
+.auth-status-btn {
+    background-color: var(--bg-obsidian);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 7px 14px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.auth-status-btn:hover {
+    border-color: var(--amber-glow);
+    color: var(--text-primary);
+}
+
+.auth-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #64748b;
+    transition: background-color 0.3s;
+}
+
+.auth-status-btn.logged-in .auth-dot {
+    background-color: #10B981;
+    box-shadow: 0 0 8px #10B981;
+}
+
+.auth-status-btn.logged-in {
+    border-color: rgba(16, 185, 129, 0.4);
+    color: var(--text-primary);
+}
+
+/* Abas de Login / Cadastro */
+.auth-tabs-row {
+    display: flex;
+    gap: 8px;
+    background-color: var(--bg-obsidian);
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+    margin: 14px 0 18px 0;
+}
+
+.auth-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.auth-tab.active {
+    background-color: var(--bg-panel);
+    color: var(--amber-glow);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.auth-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.auth-field label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* Painel de Sessão Ativa */
+.logged-user-banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background-color: var(--bg-obsidian);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+}
+
+.sync-status-box {
+    background: rgba(245, 158, 11, 0.05);
+    border: 1px dashed rgba(245, 158, 11, 0.3);
+    border-radius: 8px;
+    padding: 12px 16px;
+}

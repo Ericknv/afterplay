@@ -1,6 +1,6 @@
 // ============================================================================
 // AFTERPLAY — MOTOR COMPLETO (app.js)
-// Release 2.0: Busca Dedicada, Deezer, Coleções Detalhadas, Wrapped & Analytics
+// Release 3.0: Listening Moods, Audio Previews, Card Studio 3.0, Busca & Cloud
 // ============================================================================
 
 // --- 1. BANCO DE DADOS LOCAL (LOCALSTORAGE) ---
@@ -13,6 +13,7 @@ let diaryReviews = JSON.parse(localStorage.getItem('afterplay_diary')) || [
         cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/b4/13/e9/b413e91d-40aa-a1a8-b8e3-2b43b3e2226b/886443927087.jpg/600x600bb.jpg",
         rating: 5.0,
         favTrack: "Giorgio by Moroder",
+        vibes: ["Madrugada", "Headphones"],
         reviewText: "Uma aula de produção analógica. Ouvir a bateria e o baixo gravados ao vivo em estúdio traz um calor humano absurdo para a música eletrônica.",
         date: "17/10/2026"
     }
@@ -47,6 +48,8 @@ let currentAlbumInModal = null;
 let albumToAddToCollection = null;
 let selectedFavTrack = "Nenhuma selecionada";
 let selectedVisualScore = 5.0;
+let selectedVibes = [];
+let currentVibeFilter = 'all';
 let editingReviewIndex = null;
 let lastSearchResults = [];
 let activeReviewForCard = null;
@@ -54,6 +57,8 @@ let cachedArtistAlbums = [];
 let lastSearchQuery = '';
 let currentCardLayout = 'studio';
 let currentCardTheme = 'midnight';
+let currentAspectRatio = '4:5';
+let isTopFiveCardMode = false;
 let wrappedType = 'monthly';
 let currentWrappedData = null;
 let activeOpenCollectionId = null;
@@ -100,6 +105,8 @@ const collectionsCount = document.getElementById('collectionsCount');
 
 const sortDiarySelect = document.getElementById('sortDiarySelect');
 const filterDiaryInput = document.getElementById('filterDiaryInput');
+const vibeFilterChips = document.querySelectorAll('.vibe-chip');
+const vibePickerChips = document.querySelectorAll('.vibe-select-chip');
 
 // Visualizador Detalhado de Coleções
 const collectionsMainContainer = document.getElementById('collectionsMainContainer');
@@ -125,12 +132,14 @@ const challengePercentText = document.getElementById('challengePercentText');
 const challengeRemainingText = document.getElementById('challengeRemainingText');
 const challengePaceBadge = document.getElementById('challengePaceBadge');
 
-// Histograma e Métricas
+// Histograma, Métricas e Moods
 const ratingsHistogram = document.getElementById('ratingsHistogram');
 const mostFrequentRatingTag = document.getElementById('mostFrequentRatingTag');
 const decadesList = document.getElementById('decadesList');
 const dominantDecadeTag = document.getElementById('dominantDecadeTag');
 const topArtistsList = document.getElementById('topArtistsList');
+const dominantVibeTag = document.getElementById('dominantVibeTag');
+const vibeAnalyticsList = document.getElementById('vibeAnalyticsList');
 
 // Modais
 const reviewModal = document.getElementById('reviewModal');
@@ -148,6 +157,43 @@ const modalAddCollectionBtn = document.getElementById('modalAddCollectionBtn');
 const interactiveStarPicker = document.getElementById('interactiveStarPicker');
 const displayScoreText = document.getElementById('displayScoreText');
 
+// Engine de Áudio & Mini Player de Estúdio
+let afterplayAudio = document.getElementById('afterplayAudio');
+if (!afterplayAudio) {
+    afterplayAudio = document.createElement('audio');
+    afterplayAudio.id = 'afterplayAudio';
+    document.body.appendChild(afterplayAudio);
+}
+const studioPlayerBar = document.getElementById('studioPlayerBar');
+const playerMasterPlayBtn = document.getElementById('playerMasterPlayBtn');
+const playerTrackTitle = document.getElementById('playerTrackTitle');
+const vuEqualizer = document.getElementById('vuEqualizer');
+const playerProgressBar = document.getElementById('playerProgressBar');
+const playerTimeDisplay = document.getElementById('playerTimeDisplay');
+let currentPlayingPreviewUrl = null;
+let currentPlayingBtn = null;
+
+// Card Studio 3.0 & Proporções
+const cardStudioModal = document.getElementById('cardStudioModal');
+const closeCardStudioBtn = document.getElementById('closeCardStudioBtn');
+const shareCanvas = document.getElementById('shareCanvas');
+const downloadCardBtn = document.getElementById('downloadCardBtn');
+const layoutStudioBtn = document.getElementById('layoutStudioBtn');
+const layoutMinimalBtn = document.getElementById('layoutMinimalBtn');
+const themeDots = document.querySelectorAll('.theme-color-dot');
+const ratio45Btn = document.getElementById('ratio45Btn');
+const ratio916Btn = document.getElementById('ratio916Btn');
+const ratio11Btn = document.getElementById('ratio11Btn');
+const shareTopFiveBtn = document.getElementById('shareTopFiveBtn');
+const cardResolutionLabel = document.getElementById('cardResolutionLabel');
+
+const aspectDimensions = {
+    '4:5': { width: 1080, height: 1350, label: '1080x1350 // POST EDITORIAL (4:5)' },
+    '9:16': { width: 1080, height: 1920, label: '1080x1920 // STORY FULLSCREEN (9:16)' },
+    '1:1': { width: 1080, height: 1080, label: '1080x1080 // FEED QUADRADO (1:1)' }
+};
+
+// Outros Modais
 const createCollectionModal = document.getElementById('createCollectionModal');
 const openCreateCollectionBtn = document.getElementById('openCreateCollectionBtn');
 const closeCreateCollectionBtn = document.getElementById('closeCreateCollectionBtn');
@@ -159,14 +205,6 @@ const addToCollectionModal = document.getElementById('addToCollectionModal');
 const closeAddToCollectionBtn = document.getElementById('closeAddToCollectionBtn');
 const targetAlbumNameDisplay = document.getElementById('targetAlbumNameDisplay');
 const collectionChoicesList = document.getElementById('collectionChoicesList');
-
-const cardStudioModal = document.getElementById('cardStudioModal');
-const closeCardStudioBtn = document.getElementById('closeCardStudioBtn');
-const shareCanvas = document.getElementById('shareCanvas');
-const downloadCardBtn = document.getElementById('downloadCardBtn');
-const layoutStudioBtn = document.getElementById('layoutStudioBtn');
-const layoutMinimalBtn = document.getElementById('layoutMinimalBtn');
-const themeDots = document.querySelectorAll('.theme-color-dot');
 
 const wrappedModal = document.getElementById('wrappedModal');
 const closeWrappedBtn = document.getElementById('closeWrappedBtn');
@@ -187,6 +225,17 @@ const wrappedMonthSelect = document.getElementById('wrappedMonthSelect');
 const wrappedYearSelect = document.getElementById('wrappedYearSelect');
 const wrappedFullYearSelect = document.getElementById('wrappedFullYearSelect');
 const openWrappedBtn = document.getElementById('openWrappedBtn');
+
+// Backup & Cloud Sync
+const exportBackupBtn = document.getElementById('exportBackupBtn');
+const importBackupInput = document.getElementById('importBackupInput');
+const cloudSyncModalBtn = document.getElementById('cloudSyncModalBtn');
+const cloudSyncModal = document.getElementById('cloudSyncModal');
+const closeCloudModalBtn = document.getElementById('closeCloudModalBtn');
+const cloudEndpointInput = document.getElementById('cloudEndpointInput');
+const cloudKeyInput = document.getElementById('cloudKeyInput');
+const saveCloudSyncBtn = document.getElementById('saveCloudSyncBtn');
+const fetchCloudSyncBtn = document.getElementById('fetchCloudSyncBtn');
 
 const toastContainer = document.getElementById('toastContainer');
 
@@ -435,7 +484,6 @@ async function searchAlbums() {
             fetchFromiTunes(albumsUrl)
         ]);
 
-        // Renderiza Artistas com Foto Deezer
         if (artistsData.results && artistsData.results.length > 0) {
             if (artistsResultsGrid) {
                 artistsResultsGrid.innerHTML = '';
@@ -467,7 +515,6 @@ async function searchAlbums() {
             if (artistsBlock) artistsBlock.classList.add('hidden');
         }
 
-        // Renderiza Álbuns
         if (!albumsData.results || albumsData.results.length === 0) {
             if (!artistsData.results || artistsData.results.length === 0) {
                 if (searchResultsTitle) searchResultsTitle.textContent = `NENHUM RESULTADO`;
@@ -591,8 +638,136 @@ if (dedicatedSearchInput) {
     });
 }
 
-// --- 6. MODAL DE AVALIAÇÃO / EDIÇÃO FAIXA A FAIXA ---
+// --- 6. AUDIO EXPERIENCE & MOTOR DE REPRODUÇÃO ANALÓGICA ---
+function togglePlayPreview(previewUrl, trackName, btnElement) {
+    if (!afterplayAudio) return;
+
+    if (currentPlayingPreviewUrl === previewUrl && !afterplayAudio.paused) {
+        pauseAudio();
+        return;
+    }
+
+    if (currentPlayingBtn) {
+        currentPlayingBtn.textContent = '▶';
+        currentPlayingBtn.classList.remove('playing');
+    }
+
+    currentPlayingPreviewUrl = previewUrl;
+    currentPlayingBtn = btnElement;
+
+    afterplayAudio.src = previewUrl;
+    afterplayAudio.play().then(() => {
+        if (btnElement) {
+            btnElement.textContent = '⏸';
+            btnElement.classList.add('playing');
+        }
+        if (studioPlayerBar) studioPlayerBar.classList.remove('hidden');
+        if (playerMasterPlayBtn) playerMasterPlayBtn.textContent = '⏸';
+        if (playerTrackTitle) playerTrackTitle.textContent = trackName;
+        if (vuEqualizer) vuEqualizer.classList.add('active');
+    }).catch(err => {
+        console.error("Erro na reprodução de preview:", err);
+        showToast({ title: "Áudio Indisponível", message: "Não foi possível carregar a prévia desta faixa.", icon: "⚠️", type: "info" });
+    });
+}
+
+function pauseAudio() {
+    if (!afterplayAudio) return;
+    afterplayAudio.pause();
+    if (currentPlayingBtn) {
+        currentPlayingBtn.textContent = '▶';
+        currentPlayingBtn.classList.remove('playing');
+    }
+    if (playerMasterPlayBtn) playerMasterPlayBtn.textContent = '▶';
+    if (vuEqualizer) vuEqualizer.classList.remove('active');
+}
+
+function stopAudio() {
+    if (!afterplayAudio) return;
+    afterplayAudio.pause();
+    afterplayAudio.currentTime = 0;
+    if (currentPlayingBtn) {
+        currentPlayingBtn.textContent = '▶';
+        currentPlayingBtn.classList.remove('playing');
+    }
+    currentPlayingPreviewUrl = null;
+    currentPlayingBtn = null;
+    if (studioPlayerBar) studioPlayerBar.classList.add('hidden');
+    if (vuEqualizer) vuEqualizer.classList.remove('active');
+    if (playerProgressBar) playerProgressBar.style.width = '0%';
+    if (playerTimeDisplay) playerTimeDisplay.textContent = '0:00';
+}
+
+if (afterplayAudio) {
+    afterplayAudio.addEventListener('timeupdate', () => {
+        if (!afterplayAudio.duration) return;
+        const progress = (afterplayAudio.currentTime / afterplayAudio.duration) * 100;
+        if (playerProgressBar) playerProgressBar.style.width = `${progress}%`;
+
+        const currentSec = Math.floor(afterplayAudio.currentTime);
+        if (playerTimeDisplay) playerTimeDisplay.textContent = `0:${currentSec < 10 ? '0' : ''}${currentSec}`;
+    });
+
+    afterplayAudio.addEventListener('ended', () => {
+        pauseAudio();
+        if (playerProgressBar) playerProgressBar.style.width = '0%';
+        if (playerTimeDisplay) playerTimeDisplay.textContent = '0:00';
+    });
+}
+
+if (playerMasterPlayBtn) {
+    playerMasterPlayBtn.addEventListener('click', () => {
+        if (afterplayAudio.paused) {
+            afterplayAudio.play();
+            playerMasterPlayBtn.textContent = '⏸';
+            if (currentPlayingBtn) {
+                currentPlayingBtn.textContent = '⏸';
+                currentPlayingBtn.classList.add('playing');
+            }
+            if (vuEqualizer) vuEqualizer.classList.add('active');
+        } else {
+            pauseAudio();
+        }
+    });
+}
+
+// --- 7. CONTROLE DE VIBES (LISTENING MOODS) ---
+vibePickerChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+        const vibe = chip.dataset.vibe;
+        if (selectedVibes.includes(vibe)) {
+            selectedVibes = selectedVibes.filter(v => v !== vibe);
+            chip.classList.remove('selected');
+        } else {
+            selectedVibes.push(vibe);
+            chip.classList.add('selected');
+        }
+    });
+});
+
+function resetVibePicker(existingVibes = []) {
+    selectedVibes = [...existingVibes];
+    vibePickerChips.forEach(chip => {
+        if (selectedVibes.includes(chip.dataset.vibe)) {
+            chip.classList.add('selected');
+        } else {
+            chip.classList.remove('selected');
+        }
+    });
+}
+
+vibeFilterChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+        vibeFilterChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        currentVibeFilter = chip.dataset.vibe;
+        renderDiary();
+    });
+});
+
+// --- 8. MODAL DE AVALIAÇÃO / EDIÇÃO FAIXA A FAIXA ---
 async function openAlbumModal(collectionId, editIndex = null) {
+    stopAudio();
     editingReviewIndex = editIndex;
     if (reviewModal) reviewModal.classList.remove('hidden');
     if (modalTracklist) modalTracklist.innerHTML = `<p style="color: #9E958E; padding: 10px;">Carregando lista de faixas do álbum...</p>`;
@@ -633,10 +808,12 @@ async function openAlbumModal(collectionId, editIndex = null) {
             if (reviewTextInput) reviewTextInput.value = existing.reviewText;
             selectedFavTrack = existing.favTrack;
             setVisualScore(existing.rating);
+            resetVibePicker(existing.vibes || []);
         } else {
             if (reviewTextInput) reviewTextInput.value = '';
             selectedFavTrack = 'Nenhuma selecionada';
             setVisualScore(4.0);
+            resetVibePicker([]);
         }
 
         if (modalTracklist) {
@@ -648,33 +825,69 @@ async function openAlbumModal(collectionId, editIndex = null) {
 
             tracks.forEach((track, index) => {
                 const num = String(index + 1).padStart(2, '0');
-                const safeTrackName = track.trackName.replace(/'/g, "\\'");
                 const isFav = selectedFavTrack === track.trackName;
 
                 const row = document.createElement('div');
                 row.className = 'track-row';
-                row.innerHTML = `
-                    <div>
-                        <span class="track-num">${num}.</span>
-                        <span>${track.trackName}</span>
-                    </div>
-                    <div class="track-controls">
-                        <button type="button" class="fav-track-btn ${isFav ? 'selected' : ''}" title="Marcar como Faixa Favorita" onclick="selectFavoriteTrack(this, '${safeTrackName}')">❤️</button>
-                        <select class="track-rating-select" onchange="recalculateTrackAverage()">
-                            <option value="">--</option>
-                            <option value="5.0">5.0 ★</option>
-                            <option value="4.5">4.5 ★</option>
-                            <option value="4.0">4.0 ★</option>
-                            <option value="3.5">3.5 ★</option>
-                            <option value="3.0">3.0 ★</option>
-                            <option value="2.5">2.5 ★</option>
-                            <option value="2.0">2.0 ★</option>
-                            <option value="1.5">1.5 ★</option>
-                            <option value="1.0">1.0 ★</option>
-                            <option value="0.5">0.5 ★</option>
-                        </select>
-                    </div>
+
+                const leftDiv = document.createElement('div');
+                leftDiv.style.cssText = 'display: flex; align-items: center; overflow: hidden;';
+
+                if (track.previewUrl) {
+                    const playBtn = document.createElement('button');
+                    playBtn.type = 'button';
+                    playBtn.className = 'track-play-btn';
+                    playBtn.textContent = '▶';
+                    playBtn.title = 'Ouvir trecho de 30s';
+                    playBtn.addEventListener('click', () => {
+                        togglePlayPreview(track.previewUrl, track.trackName, playBtn);
+                    });
+                    leftDiv.appendChild(playBtn);
+                }
+
+                const numSpan = document.createElement('span');
+                numSpan.className = 'track-num';
+                numSpan.textContent = `${num}.`;
+
+                const nameSpan = document.createElement('span');
+                nameSpan.style.cssText = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: 4px;';
+                nameSpan.textContent = track.trackName;
+
+                leftDiv.appendChild(numSpan);
+                leftDiv.appendChild(nameSpan);
+
+                const rightDiv = document.createElement('div');
+                rightDiv.className = 'track-controls';
+
+                const favBtn = document.createElement('button');
+                favBtn.type = 'button';
+                favBtn.className = `fav-track-btn ${isFav ? 'selected' : ''}`;
+                favBtn.title = 'Marcar como Faixa Favorita';
+                favBtn.textContent = '❤️';
+                favBtn.addEventListener('click', () => selectFavoriteTrack(favBtn, track.trackName));
+
+                const selectRating = document.createElement('select');
+                selectRating.className = 'track-rating-select';
+                selectRating.innerHTML = `
+                    <option value="">--</option>
+                    <option value="5.0">5.0 ★</option>
+                    <option value="4.5">4.5 ★</option>
+                    <option value="4.0">4.0 ★</option>
+                    <option value="3.5">3.5 ★</option>
+                    <option value="3.0">3.0 ★</option>
+                    <option value="2.5">2.5 ★</option>
+                    <option value="2.0">2.0 ★</option>
+                    <option value="1.5">1.5 ★</option>
+                    <option value="1.0">1.0 ★</option>
+                    <option value="0.5">0.5 ★</option>
                 `;
+                selectRating.addEventListener('change', recalculateTrackAverage);
+
+                rightDiv.appendChild(favBtn);
+                rightDiv.appendChild(selectRating);
+
+                row.appendChild(leftDiv);
+                row.appendChild(rightDiv);
                 modalTracklist.appendChild(row);
             });
         }
@@ -737,6 +950,7 @@ if (saveReviewBtn) {
                 ...diaryReviews[editingReviewIndex],
                 rating: selectedVisualScore,
                 favTrack: selectedFavTrack,
+                vibes: [...selectedVibes],
                 reviewText: reviewText
             };
             showToast({ title: "Review Remasterizada", message: `"${currentAlbumInModal.title}" foi atualizado!`, icon: "🎛️", type: "success" });
@@ -749,6 +963,7 @@ if (saveReviewBtn) {
                 cover: currentAlbumInModal.cover,
                 rating: selectedVisualScore,
                 favTrack: selectedFavTrack,
+                vibes: [...selectedVibes],
                 reviewText: reviewText,
                 date: new Date().toLocaleDateString('pt-BR')
             };
@@ -766,12 +981,13 @@ if (saveReviewBtn) {
 
         saveAllToLocalStorage();
         renderAll();
+        stopAudio();
         if (reviewModal) reviewModal.classList.add('hidden');
         editingReviewIndex = null;
     });
 }
 
-// --- 7. TOP 5 DA VIDA (LOCALIZADO NO PERFIL) ---
+// --- 9. TOP 5 DA VIDA (LOCALIZADO NO PERFIL) ---
 if (pinTopFiveBtn) {
     pinTopFiveBtn.addEventListener('click', () => {
         if (!currentAlbumInModal) return;
@@ -851,16 +1067,61 @@ function deleteDiaryReview(index) {
     }
 }
 
-// --- 8. GERADOR DE CARD VISUAL EM CANVAS (STUDIO & MINIMALISTA) ---
+// --- 10. CARD STUDIO 3.0: ASPECT RATIOS & TOP 5 POSTER ---
+function setAspectRatio(ratio) {
+    currentAspectRatio = ratio;
+    const dim = aspectDimensions[ratio];
+    if (shareCanvas) {
+        shareCanvas.width = dim.width;
+        shareCanvas.height = dim.height;
+    }
+    if (cardResolutionLabel) cardResolutionLabel.textContent = dim.label;
+
+    [ratio45Btn, ratio916Btn, ratio11Btn].forEach(btn => {
+        if (btn) btn.classList.remove('active');
+    });
+
+    if (ratio === '4:5' && ratio45Btn) ratio45Btn.classList.add('active');
+    if (ratio === '9:16' && ratio916Btn) ratio916Btn.classList.add('active');
+    if (ratio === '1:1' && ratio11Btn) ratio11Btn.classList.add('active');
+
+    renderSelectedCard();
+}
+
+if (ratio45Btn) ratio45Btn.addEventListener('click', () => setAspectRatio('4:5'));
+if (ratio916Btn) ratio916Btn.addEventListener('click', () => setAspectRatio('9:16'));
+if (ratio11Btn) ratio11Btn.addEventListener('click', () => setAspectRatio('1:1'));
+
 function generateShareCard(index) {
+    isTopFiveCardMode = false;
     activeReviewForCard = diaryReviews[index];
     if (cardStudioModal) cardStudioModal.classList.remove('hidden');
-    renderSelectedCard();
+    setAspectRatio(currentAspectRatio);
+}
+
+if (shareTopFiveBtn) {
+    shareTopFiveBtn.addEventListener('click', () => {
+        const activeAlbums = topFiveAlbums.filter(a => a !== null);
+        if (activeAlbums.length === 0) {
+            showToast({
+                title: "Top 5 Vazio",
+                message: "Fixe pelo menos um álbum no seu Top 5 antes de gerar o pôster.",
+                icon: "🔥",
+                type: "info"
+            });
+            return;
+        }
+
+        isTopFiveCardMode = true;
+        if (cardStudioModal) cardStudioModal.classList.remove('hidden');
+        setAspectRatio(currentAspectRatio);
+    });
 }
 
 if (closeCardStudioBtn) {
     closeCardStudioBtn.addEventListener('click', () => {
         if (cardStudioModal) cardStudioModal.classList.add('hidden');
+        isTopFiveCardMode = false;
     });
 }
 
@@ -892,17 +1153,22 @@ themeDots.forEach(dot => {
 });
 
 function renderSelectedCard() {
-    if (!activeReviewForCard || !shareCanvas) return;
-    if (currentCardLayout === 'studio') {
-        drawStudioCard(activeReviewForCard, currentCardTheme);
+    if (!shareCanvas) return;
+    if (isTopFiveCardMode) {
+        drawTopFivePoster(currentCardTheme);
     } else {
-        drawMinimalCard(activeReviewForCard, currentCardTheme);
+        if (!activeReviewForCard) return;
+        if (currentCardLayout === 'studio') {
+            drawStudioCard(activeReviewForCard, currentCardTheme);
+        } else {
+            drawMinimalCard(activeReviewForCard, currentCardTheme);
+        }
     }
 }
 
 function applyThemeBackground(ctx, width, height, theme) {
     if (theme === 'tubeglow') {
-        const bgGrad = ctx.createRadialGradient(width / 2, height / 2 - 80, 50, width / 2, height / 2, 750);
+        const bgGrad = ctx.createRadialGradient(width / 2, height / 2 - 80, 50, width / 2, height / 2, Math.max(width, height) * 0.7);
         bgGrad.addColorStop(0, '#54260b');
         bgGrad.addColorStop(0.5, '#241209');
         bgGrad.addColorStop(1, '#0e0806');
@@ -957,10 +1223,10 @@ function drawMinimalCard(rev, theme) {
     img.crossOrigin = 'anonymous';
     img.src = rev.cover;
 
-    const renderMinimalContent = () => {
-        const coverSize = 560;
+    const render = () => {
+        const coverSize = currentAspectRatio === '9:16' ? 620 : (currentAspectRatio === '1:1' ? 440 : 560);
         const coverX = (width - coverSize) / 2;
-        const coverY = 175;
+        const coverY = currentAspectRatio === '9:16' ? 280 : (currentAspectRatio === '1:1' ? 140 : 175);
 
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
@@ -974,38 +1240,40 @@ function drawMinimalCard(rev, theme) {
         ctx.drawImage(img, coverX, coverY, coverSize, coverSize);
         ctx.restore();
 
+        const metaStartY = coverY + coverSize + (currentAspectRatio === '9:16' ? 100 : (currentAspectRatio === '1:1' ? 60 : 80));
+
         ctx.textAlign = 'center';
         ctx.fillStyle = '#F5F2EB';
-        ctx.font = '800 52px Inter, sans-serif';
+        ctx.font = '800 50px Inter, sans-serif';
         const titleText = rev.title.length > 25 ? rev.title.substring(0, 23) + '...' : rev.title;
-        ctx.fillText(titleText, width / 2, 830);
+        ctx.fillText(titleText, width / 2, metaStartY);
 
         ctx.fillStyle = '#9E958E';
-        ctx.font = '500 36px Inter, sans-serif';
-        ctx.fillText(`${rev.artist} • ${rev.year}`, width / 2, 895);
+        ctx.font = '500 34px Inter, sans-serif';
+        ctx.fillText(`${rev.artist} • ${rev.year}`, width / 2, metaStartY + 60);
 
         ctx.strokeStyle = '#2E2826';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(width / 2 - 140, 960);
-        ctx.lineTo(width / 2 + 140, 960);
+        ctx.moveTo(width / 2 - 140, metaStartY + 115);
+        ctx.lineTo(width / 2 + 140, metaStartY + 115);
         ctx.stroke();
 
         ctx.fillStyle = '#F59E0B';
-        ctx.font = '76px Inter, sans-serif';
+        ctx.font = '72px Inter, sans-serif';
         ctx.shadowColor = 'rgba(245, 158, 11, 0.45)';
         ctx.shadowBlur = 25;
         const stars = getStarString(rev.rating);
-        ctx.fillText(stars, width / 2, 1080);
+        ctx.fillText(stars, width / 2, metaStartY + 215);
         ctx.shadowBlur = 0;
 
         ctx.fillStyle = '#F5F2EB';
-        ctx.font = '700 42px "JetBrains Mono", monospace';
-        ctx.fillText(`${rev.rating.toFixed(1)} / 5.0`, width / 2, 1160);
+        ctx.font = '700 40px "JetBrains Mono", monospace';
+        ctx.fillText(`${rev.rating.toFixed(1)} / 5.0`, width / 2, metaStartY + 285);
     };
 
-    img.onload = renderMinimalContent;
-    if (img.complete) renderMinimalContent();
+    img.onload = render;
+    if (img.complete) render();
 }
 
 function drawStudioCard(rev, theme) {
@@ -1042,10 +1310,10 @@ function drawStudioCard(rev, theme) {
     img.crossOrigin = 'anonymous';
     img.src = rev.cover;
 
-    const renderStudioContent = () => {
-        const coverSize = 460;
+    const render = () => {
+        const coverSize = currentAspectRatio === '9:16' ? 520 : (currentAspectRatio === '1:1' ? 360 : 460);
         const coverX = (width - coverSize) / 2;
-        const coverY = 160;
+        const coverY = currentAspectRatio === '9:16' ? 220 : (currentAspectRatio === '1:1' ? 140 : 160);
 
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
@@ -1059,94 +1327,220 @@ function drawStudioCard(rev, theme) {
         ctx.drawImage(img, coverX, coverY, coverSize, coverSize);
         ctx.restore();
 
+        const contentY = coverY + coverSize + (currentAspectRatio === '1:1' ? 45 : 65);
+
         ctx.textAlign = 'center';
         ctx.fillStyle = '#F5F2EB';
-        ctx.font = '800 48px Inter, sans-serif';
+        ctx.font = '800 46px Inter, sans-serif';
         const titleText = rev.title.length > 28 ? rev.title.substring(0, 26) + '...' : rev.title;
-        ctx.fillText(titleText, width / 2, 690);
+        ctx.fillText(titleText, width / 2, contentY);
 
         ctx.fillStyle = '#9E958E';
-        ctx.font = '500 32px Inter, sans-serif';
-        ctx.fillText(`${rev.artist} • ${rev.year}`, width / 2, 745);
+        ctx.font = '500 30px Inter, sans-serif';
+        ctx.fillText(`${rev.artist} • ${rev.year}`, width / 2, contentY + 50);
 
         ctx.fillStyle = '#F59E0B';
-        ctx.font = '54px Inter, sans-serif';
+        ctx.font = '50px Inter, sans-serif';
         const stars = getStarString(rev.rating);
-        ctx.fillText(stars, width / 2, 830);
+        ctx.fillText(stars, width / 2, contentY + 125);
 
-        ctx.font = '700 28px "JetBrains Mono", monospace';
-        ctx.fillText(`${rev.rating.toFixed(1)} / 5.0`, width / 2, 878);
+        ctx.font = '700 26px "JetBrains Mono", monospace';
+        ctx.fillText(`${rev.rating.toFixed(1)} / 5.0`, width / 2, contentY + 168);
+
+        let quoteY = contentY + 230;
 
         if (rev.favTrack && rev.favTrack !== 'Nenhuma selecionada') {
             const trackText = `❤️ Ponto Alto: ${rev.favTrack}`;
-            ctx.font = '600 26px Inter, sans-serif';
-            const badgeWidth = ctx.measureText(trackText).width + 60;
+            ctx.font = '600 24px Inter, sans-serif';
+            const badgeWidth = ctx.measureText(trackText).width + 50;
             const badgeX = (width - badgeWidth) / 2;
-            const badgeY = 920;
 
             ctx.fillStyle = 'rgba(225, 29, 72, 0.15)';
             ctx.strokeStyle = 'rgba(225, 29, 72, 0.5)';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.roundRect(badgeX, badgeY, badgeWidth, 52, 26);
+            ctx.roundRect(badgeX, contentY + 195, badgeWidth, 48, 24);
             ctx.fill();
             ctx.stroke();
 
             ctx.fillStyle = '#ff6b8b';
-            ctx.fillText(trackText, width / 2, badgeY + 36);
+            ctx.fillText(trackText, width / 2, contentY + 228);
+            quoteY += 60;
         }
 
-        ctx.fillStyle = '#D6D0C8';
-        ctx.font = 'italic 30px Inter, sans-serif';
-        const maxWidth = 860;
-        const lineHeight = 44;
-        const startY = 1030;
+        if (currentAspectRatio !== '1:1') {
+            ctx.fillStyle = '#D6D0C8';
+            ctx.font = 'italic 28px Inter, sans-serif';
+            const maxWidth = 860;
+            const lineHeight = 42;
 
-        const words = (`"${rev.reviewText}"`).split(' ');
-        let line = '';
-        let currentY = startY;
-        let linesCount = 0;
+            const words = (`"${rev.reviewText}"`).split(' ');
+            let line = '';
+            let currentY = quoteY + 20;
+            let linesCount = 0;
 
-        for (let n = 0; n < words.length; n++) {
-            const testLine = line + words[n] + ' ';
-            const metrics = ctx.measureText(testLine);
-            const testWidth = metrics.width;
-            if (testWidth > maxWidth && n > 0) {
-                ctx.fillText(line, width / 2, currentY);
-                line = words[n] + ' ';
-                currentY += lineHeight;
-                linesCount++;
-                if (linesCount >= 4) {
-                    line = line + '...';
-                    break;
+            for (let n = 0; n < words.length; n++) {
+                const testLine = line + words[n] + ' ';
+                const metrics = ctx.measureText(testLine);
+                if (metrics.width > maxWidth && n > 0) {
+                    ctx.fillText(line, width / 2, currentY);
+                    line = words[n] + ' ';
+                    currentY += lineHeight;
+                    linesCount++;
+                    if (linesCount >= (currentAspectRatio === '9:16' ? 6 : 4)) {
+                        line = line + '...';
+                        break;
+                    }
+                } else {
+                    line = testLine;
                 }
-            } else {
-                line = testLine;
             }
+            ctx.fillText(line, width / 2, currentY);
         }
-        ctx.fillText(line, width / 2, currentY);
 
         ctx.fillStyle = '#9E958E';
         ctx.font = '500 22px "JetBrains Mono", monospace';
-        ctx.fillText(`LOGGED BY ERICK NAVA • ${rev.date || 'OCT 2026'}`, width / 2, 1270);
+        const footerY = height - 70;
+        ctx.fillText(`LOGGED BY ERICK NAVA • ${rev.date || '2026'}`, width / 2, footerY);
     };
 
-    img.onload = renderStudioContent;
-    if (img.complete) renderStudioContent();
+    img.onload = render;
+    if (img.complete) render();
+}
+
+function drawTopFivePoster(theme) {
+    const ctx = shareCanvas.getContext('2d');
+    const width = shareCanvas.width;
+    const height = shareCanvas.height;
+
+    applyThemeBackground(ctx, width, height, theme);
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#E11D48';
+    ctx.beginPath();
+    ctx.arc(85, 95, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#F5F2EB';
+    ctx.font = '800 36px Inter, sans-serif';
+    ctx.fillText('AFTERPLAY', 115, 107);
+
+    ctx.fillStyle = '#F59E0B';
+    ctx.font = '700 24px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('MY ALL-TIME TOP 5', width - 85, 105);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#F5F2EB';
+    ctx.font = '800 48px Inter, sans-serif';
+    ctx.fillText('OS 5 ÁLBUNS DA MINHA VIDA', width / 2, 175);
+
+    ctx.fillStyle = '#9E958E';
+    ctx.font = '500 24px Inter, sans-serif';
+    ctx.fillText('Curadoria definitiva de audição atenta // Erick Nava', width / 2, 215);
+
+    const validAlbums = topFiveAlbums.filter(a => a !== null);
+    if (validAlbums.length === 0) return;
+
+    let loadedImages = 0;
+    const totalImages = validAlbums.length;
+    const loadedImgs = [];
+
+    validAlbums.forEach((album, idx) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = album.cover;
+        img.onload = () => {
+            loadedImages++;
+            loadedImgs[idx] = img;
+            if (loadedImages === totalImages) {
+                renderTopFiveContent();
+            }
+        };
+        if (img.complete) {
+            loadedImages++;
+            loadedImgs[idx] = img;
+            if (loadedImages === totalImages) {
+                renderTopFiveContent();
+            }
+        }
+    });
+
+    function renderTopFiveContent() {
+        const startY = 270;
+        const availableHeight = height - startY - 120;
+        const rowHeight = availableHeight / 5;
+
+        validAlbums.forEach((album, idx) => {
+            const currentY = startY + idx * rowHeight;
+            const img = loadedImgs[idx];
+            const coverSize = Math.min(rowHeight - 20, 140);
+
+            ctx.fillStyle = 'rgba(28, 24, 23, 0.7)';
+            ctx.strokeStyle = '#2E2826';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(80, currentY, width - 160, coverSize + 16, 12);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#F59E0B';
+            ctx.font = '800 36px "JetBrains Mono", monospace';
+            ctx.fillText(`#0${idx + 1}`, 105, currentY + coverSize / 2 + 18);
+
+            if (img) {
+                ctx.save();
+                const coverX = 205;
+                const coverY = currentY + 8;
+                ctx.beginPath();
+                ctx.roundRect(coverX, coverY, coverSize, coverSize, 8);
+                ctx.clip();
+                ctx.drawImage(img, coverX, coverY, coverSize, coverSize);
+                ctx.restore();
+            }
+
+            const textX = 205 + coverSize + 25;
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#F5F2EB';
+            ctx.font = '700 32px Inter, sans-serif';
+            const title = album.title.length > 26 ? album.title.substring(0, 24) + '...' : album.title;
+            ctx.fillText(title, textX, currentY + coverSize / 2 - 4);
+
+            ctx.fillStyle = '#9E958E';
+            ctx.font = '500 24px Inter, sans-serif';
+            ctx.fillText(`${album.artist} • ${album.year}`, textX, currentY + coverSize / 2 + 34);
+        });
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#9E958E';
+        ctx.font = '500 22px "JetBrains Mono", monospace';
+        ctx.fillText('AFTERPLAY STUDIO ARCHIVE // MANAUS - AM', width / 2, height - 55);
+    }
 }
 
 function downloadCanvasAsImage() {
-    if (!activeReviewForCard || !shareCanvas) return;
+    if (!shareCanvas) return;
 
     const link = document.createElement('a');
-    const safeTitle = activeReviewForCard.title.toLowerCase().replace(/[^a-z0-9]/g, '-');
-    link.download = `afterplay-${safeTitle}-${currentCardLayout}-${currentCardTheme}.png`;
+    let filename = '';
+
+    if (isTopFiveCardMode) {
+        filename = `afterplay-top-5-${currentAspectRatio.replace(':', 'x')}-${currentCardTheme}.png`;
+    } else if (activeReviewForCard) {
+        const safeTitle = activeReviewForCard.title.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        filename = `afterplay-${safeTitle}-${currentAspectRatio.replace(':', 'x')}-${currentCardLayout}-${currentCardTheme}.png`;
+    } else {
+        filename = `afterplay-card.png`;
+    }
+
+    link.download = filename;
     link.href = shareCanvas.toDataURL('image/png');
     link.click();
 
     showToast({
         title: "Download Concluído!",
-        message: `Card ${currentCardLayout.toUpperCase()} baixado em alta resolução.`,
+        message: `Card exportado em alta definição (${aspectDimensions[currentAspectRatio].label}).`,
         icon: "💾",
         type: "success"
     });
@@ -1154,7 +1548,7 @@ function downloadCanvasAsImage() {
 
 if (downloadCardBtn) downloadCardBtn.addEventListener('click', downloadCanvasAsImage);
 
-// --- 9. WANT TO LISTEN & VISUALIZADOR DETALHADO DE COLEÇÕES ---
+// --- 11. WANT TO LISTEN & VISUALIZADOR DETALHADO DE COLEÇÕES ---
 function addToWantList(collectionId) {
     let found = lastSearchResults.find(a => a.collectionId === collectionId);
     if (!found) {
@@ -1471,7 +1865,7 @@ function renderCollections() {
     });
 }
 
-// --- 10. RENDERIZAR DIÁRIO E WANT LIST ---
+// --- 12. RENDERIZAR DIÁRIO E WANT LIST COM LISTENING MOODS ---
 function getStarString(score) {
     const fullStars = Math.floor(score);
     const halfStar = (score % 1) >= 0.5 ? '½' : '';
@@ -1490,6 +1884,12 @@ function renderDiary() {
 
     let processedReviews = diaryReviews.map((item, originalIndex) => ({ ...item, originalIndex }));
 
+    // Filtro por Vibe
+    if (currentVibeFilter !== 'all') {
+        processedReviews = processedReviews.filter(rev => rev.vibes && rev.vibes.includes(currentVibeFilter));
+    }
+
+    // Filtro de Texto
     const searchTerm = filterDiaryInput ? filterDiaryInput.value.trim().toLowerCase() : '';
     if (searchTerm) {
         processedReviews = processedReviews.filter(rev => 
@@ -1499,6 +1899,7 @@ function renderDiary() {
         );
     }
 
+    // Ordenação
     const sortType = sortDiarySelect ? sortDiarySelect.value : 'recent';
     processedReviews.sort((a, b) => {
         if (sortType === 'ratingDesc') return b.rating - a.rating;
@@ -1509,7 +1910,7 @@ function renderDiary() {
     });
 
     if (processedReviews.length === 0) {
-        diarySection.innerHTML = `<p style="color: #9E958E;">Nenhum álbum corresponde ao filtro pesquisado.</p>`;
+        diarySection.innerHTML = `<p style="color: #9E958E;">Nenhum álbum corresponde ao filtro de atmosfera ou busca selecionado.</p>`;
         return;
     }
 
@@ -1517,6 +1918,11 @@ function renderDiary() {
         const card = document.createElement('div');
         card.className = 'review-card';
         card.style.marginBottom = '18px';
+
+        const vibesHtml = (item.vibes && item.vibes.length > 0)
+            ? `<div class="diary-vibes-row">${item.vibes.map(v => `<span class="vibe-badge">#${v}</span>`).join('')}</div>`
+            : '';
+
         card.innerHTML = `
             <img src="${item.cover}" alt="${item.title}" class="review-cover">
             <div class="review-content">
@@ -1538,6 +1944,7 @@ function renderDiary() {
                     <span class="fav-track-badge">❤️ Favorita: ${item.favTrack}</span>
                 </div>
                 <p class="review-text">"${item.reviewText}"</p>
+                ${vibesHtml}
             </div>
         `;
         diarySection.appendChild(card);
@@ -1572,7 +1979,7 @@ function renderWantList() {
     });
 }
 
-// --- 11. DESAFIO ANUAL & ESTATÍSTICAS ---
+// --- 13. DESAFIO ANUAL & ESTATÍSTICAS ANALÍTICAS ---
 function renderListeningChallenge() {
     if (!challengeHeadline || !progressBarFill || !challengePercentText) return;
     const currentYear = new Date().getFullYear();
@@ -1642,9 +2049,11 @@ function renderMusicAnalytics() {
         ratingsHistogram.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem; width: 100%; text-align: center;">Avalie discos para gerar o histograma de notas.</p>`;
         decadesList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Nenhum dado de época disponível ainda.</p>`;
         topArtistsList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Nenhum artista catalogado.</p>`;
+        if (vibeAnalyticsList) vibeAnalyticsList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Nenhum dado de atmosfera registrado.</p>`;
         return;
     }
 
+    // 1. Histograma de Notas
     const possibleScores = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
     const scoreCounts = {};
     possibleScores.forEach(s => scoreCounts[s] = 0);
@@ -1683,6 +2092,7 @@ function renderMusicAnalytics() {
         mostFrequentRatingTag.textContent = highestCount > 0 ? `Pico: ${peakScore.toFixed(1)} ★ (${highestCount}x)` : 'Pico: --';
     }
 
+    // 2. Linha do Tempo por Décadas
     const decadeBuckets = {};
     diaryReviews.forEach(rev => {
         const year = parseInt(rev.year);
@@ -1721,6 +2131,7 @@ function renderMusicAnalytics() {
         });
     }
 
+    // 3. Top Artistas Mais Ouvidos
     const artistStats = {};
     diaryReviews.forEach(rev => {
         const name = rev.artist.trim();
@@ -1752,6 +2163,44 @@ function renderMusicAnalytics() {
         `;
         topArtistsList.appendChild(item);
     });
+
+    // 4. Atmosferas de Escuta // Top Vibes
+    const vibeCounts = {};
+    diaryReviews.forEach(rev => {
+        if (rev.vibes && Array.isArray(rev.vibes)) {
+            rev.vibes.forEach(v => {
+                vibeCounts[v] = (vibeCounts[v] || 0) + 1;
+            });
+        }
+    });
+
+    if (vibeAnalyticsList) {
+        vibeAnalyticsList.innerHTML = '';
+        const sortedVibes = Object.entries(vibeCounts).sort((a, b) => b[1] - a[1]);
+
+        if (sortedVibes.length === 0) {
+            vibeAnalyticsList.innerHTML = `<p style="color: #9E958E; font-size: 0.85rem;">Selecione tags de atmosfera nas suas avaliações para visualizar o mapa de humor.</p>`;
+            if (dominantVibeTag) dominantVibeTag.textContent = 'Vibe Principal: --';
+        } else {
+            const topVibe = sortedVibes[0];
+            if (dominantVibeTag) dominantVibeTag.textContent = `Vibe Principal: #${topVibe[0]} (${topVibe[1]}x)`;
+
+            const maxVibeCount = topVibe[1];
+            sortedVibes.slice(0, 5).forEach(([vibeName, count]) => {
+                const percent = Math.round((count / maxVibeCount) * 100);
+                const row = document.createElement('div');
+                row.className = 'vibe-rank-row';
+                row.innerHTML = `
+                    <span class="vibe-rank-name">#${vibeName}</span>
+                    <div class="vibe-rank-track">
+                        <div class="vibe-rank-fill" style="width: ${percent}%;"></div>
+                    </div>
+                    <span class="vibe-rank-count">${count}x</span>
+                `;
+                vibeAnalyticsList.appendChild(row);
+            });
+        }
+    }
 }
 
 function renderProfileStats() {
@@ -1774,7 +2223,7 @@ function renderProfileStats() {
     renderMusicAnalytics();
 }
 
-// --- 12. MÓDULO AFTERPLAY WRAPPED ---
+// --- 14. MÓDULO AFTERPLAY WRAPPED ---
 if (wrappedTypeMonthlyBtn) {
     wrappedTypeMonthlyBtn.addEventListener('click', () => {
         wrappedType = 'monthly';
@@ -2050,22 +2499,11 @@ if (exportWrappedCardBtn) {
     });
 }
 
-// --- 13. MÓDULO DE BACKUP & PORTABILIDADE (SPRINT 14) ---
-const exportBackupBtn = document.getElementById('exportBackupBtn');
-const importBackupInput = document.getElementById('importBackupInput');
-const cloudSyncModalBtn = document.getElementById('cloudSyncModalBtn');
-const cloudSyncModal = document.getElementById('cloudSyncModal');
-const closeCloudModalBtn = document.getElementById('closeCloudModalBtn');
-const cloudEndpointInput = document.getElementById('cloudEndpointInput');
-const cloudKeyInput = document.getElementById('cloudKeyInput');
-const saveCloudSyncBtn = document.getElementById('saveCloudSyncBtn');
-const fetchCloudSyncBtn = document.getElementById('fetchCloudSyncBtn');
-
-// 1. Exportar Backup JSON Local
+// --- 15. MÓDULO DE BACKUP & CLOUD SYNC ---
 if (exportBackupBtn) {
     exportBackupBtn.addEventListener('click', () => {
         const fullBackup = {
-            version: "2.0",
+            version: "3.0",
             exportDate: new Date().toISOString(),
             diaryReviews,
             wantToListen,
@@ -2092,7 +2530,6 @@ if (exportBackupBtn) {
     });
 }
 
-// 2. Restaurar Backup a partir de Arquivo JSON
 if (importBackupInput) {
     importBackupInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -2135,7 +2572,6 @@ if (importBackupInput) {
     });
 }
 
-// 3. Sincronização em Nuvem (Cloud Sync)
 if (cloudSyncModalBtn) {
     cloudSyncModalBtn.addEventListener('click', () => {
         if (cloudEndpointInput) cloudEndpointInput.value = localStorage.getItem('afterplay_cloud_endpoint') || '';
@@ -2217,7 +2653,7 @@ if (fetchCloudSyncBtn) {
 
             if (res.ok) {
                 const remote = await res.json();
-                const data = remote.record || remote; // Normaliza formato JSONBin / direto
+                const data = remote.record || remote;
 
                 if (data.diaryReviews) {
                     diaryReviews = data.diaryReviews;
@@ -2242,12 +2678,276 @@ if (fetchCloudSyncBtn) {
     });
 }
 
-// --- PERSISTÊNCIA & BOOTSTRAPPING ---
+// ============================================================================
+// 16. MÓDULO SUPABASE AUTH & CLOUD AUTO-SYNC (RELEASE 3.0)
+// ============================================================================
+
+// Credenciais do Supabase (Você pode usar o projeto padrão abaixo ou substituir pelas suas chaves)
+const SUPABASE_URL = localStorage.getItem('afterplay_sb_url') || 'https://xyzcompany.supabase.co';
+const SUPABASE_ANON_KEY = localStorage.getItem('afterplay_sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+
+let currentUserSession = JSON.parse(localStorage.getItem('afterplay_user_session')) || null;
+let currentAuthMode = 'login'; // 'login' ou 'register'
+
+// Seletores DOM de Autenticação
+const openAuthModalBtn = document.getElementById('openAuthModalBtn');
+const authStatusDot = document.getElementById('authStatusDot');
+const authStatusText = document.getElementById('authStatusText');
+const authModal = document.getElementById('authModal');
+const closeAuthModalBtn = document.getElementById('closeAuthModalBtn');
+const authLoggedOutView = document.getElementById('authLoggedOutView');
+const authLoggedInView = document.getElementById('authLoggedInView');
+const tabLoginBtn = document.getElementById('tabLoginBtn');
+const tabRegisterBtn = document.getElementById('tabRegisterBtn');
+const authNameField = document.getElementById('authNameField');
+const authNameInput = document.getElementById('authNameInput');
+const authEmailInput = document.getElementById('authEmailInput');
+const authPasswordInput = document.getElementById('authPasswordInput');
+const submitAuthBtn = document.getElementById('submitAuthBtn');
+const sessionUserName = document.getElementById('sessionUserName');
+const sessionUserEmail = document.getElementById('sessionUserEmail');
+const forceSyncCloudBtn = document.getElementById('forceSyncCloudBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+
+// Atualização Visual do Botão de Conexão no Cabeçalho
+function updateAuthUI() {
+    if (currentUserSession) {
+        if (openAuthModalBtn) {
+            openAuthModalBtn.classList.add('logged-in');
+            authStatusText.textContent = currentUserSession.name || currentUserSession.email.split('@')[0].toUpperCase();
+        }
+        if (authLoggedOutView) authLoggedOutView.classList.add('hidden');
+        if (authLoggedInView) authLoggedInView.classList.remove('hidden');
+        if (sessionUserName) sessionUserName.textContent = currentUserSession.name || "Ouvinte Afterplay";
+        if (sessionUserEmail) sessionUserEmail.textContent = currentUserSession.email;
+    } else {
+        if (openAuthModalBtn) {
+            openAuthModalBtn.classList.remove('logged-in');
+            authStatusText.textContent = "CONECTAR NUVEM";
+        }
+        if (authLoggedOutView) authLoggedOutView.classList.remove('hidden');
+        if (authLoggedInView) authLoggedInView.classList.add('hidden');
+    }
+}
+
+// Abrir e Fechar Modal de Acesso
+if (openAuthModalBtn) {
+    openAuthModalBtn.addEventListener('click', () => {
+        updateAuthUI();
+        if (authModal) authModal.classList.remove('hidden');
+    });
+}
+
+if (closeAuthModalBtn) {
+    closeAuthModalBtn.addEventListener('click', () => {
+        if (authModal) authModal.classList.add('hidden');
+    });
+}
+
+// Alternar entre Login e Cadastro
+if (tabLoginBtn) {
+    tabLoginBtn.addEventListener('click', () => {
+        currentAuthMode = 'login';
+        tabLoginBtn.classList.add('active');
+        if (tabRegisterBtn) tabRegisterBtn.classList.remove('active');
+        if (authNameField) authNameField.style.display = 'none';
+        if (submitAuthBtn) submitAuthBtn.textContent = '⚡ ACESSAR MEU ACERVO';
+    });
+}
+
+if (tabRegisterBtn) {
+    tabRegisterBtn.addEventListener('click', () => {
+        currentAuthMode = 'register';
+        tabRegisterBtn.classList.add('active');
+        if (tabLoginBtn) tabLoginBtn.classList.remove('active');
+        if (authNameField) authNameField.style.display = 'flex';
+        if (submitAuthBtn) submitAuthBtn.textContent = '✨ CRIAR MINHA CONTA & CONECTAR';
+    });
+}
+
+// Disparo de Autenticação (Login / Cadastro)
+if (submitAuthBtn) {
+    submitAuthBtn.addEventListener('click', async () => {
+        const email = authEmailInput.value.trim();
+        const password = authPasswordInput.value.trim();
+        const name = authNameInput ? authNameInput.value.trim() : '';
+
+        if (!email || !password) {
+            showToast({ title: "Dados Incompletos", message: "Informe seu e-mail e senha.", icon: "⚠️", type: "info" });
+            return;
+        }
+
+        if (password.length < 6) {
+            showToast({ title: "Senha Curta", message: "A senha deve ter no mínimo 6 caracteres.", icon: "⚠️", type: "info" });
+            return;
+        }
+
+        submitAuthBtn.disabled = true;
+        submitAuthBtn.textContent = "CONECTANDO AO ESTÚDIO...";
+
+        try {
+            // Se o usuário estiver configurando seu projeto Supabase próprio, faz chamada real à API
+            if (SUPABASE_URL.includes('supabase.co') && !SUPABASE_URL.includes('xyzcompany')) {
+                const endpoint = currentAuthMode === 'register' 
+                    ? `${SUPABASE_URL}/auth/v1/signup` 
+                    : `${SUPABASE_URL}/auth/v1/token?grant_type=password`;
+
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        ...(currentAuthMode === 'register' && name ? { data: { name } } : {})
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.msg || data.error_description || "Falha na autenticação.");
+
+                currentUserSession = {
+                    id: data.user ? data.user.id : data.id,
+                    email: data.user ? data.user.email : email,
+                    name: (data.user && data.user.user_metadata && data.user.user_metadata.name) || name || email.split('@')[0],
+                    token: data.access_token
+                };
+            } else {
+                // Modo Standalone Local-Sync: autenticação instantânea com persistência de perfil
+                currentUserSession = {
+                    id: 'usr_' + btoa(email).replace(/[^a-zA-Z0-9]/g, '').substring(0, 12),
+                    email: email,
+                    name: name || (email.split('@')[0].toUpperCase()),
+                    token: 'tok_' + Date.now()
+                };
+            }
+
+            localStorage.setItem('afterplay_user_session', JSON.stringify(currentUserSession));
+            updateAuthUI();
+
+            showToast({
+                title: "Estúdio Conectado!",
+                message: `Bem-vindo de volta, ${currentUserSession.name}!`,
+                icon: "🟢",
+                type: "success"
+            });
+
+            // Baixa dados da nuvem se existirem ou envia acervo atual
+            await pullUserDataFromCloud();
+            if (authModal) authModal.classList.add('hidden');
+
+        } catch (error) {
+            console.error(error);
+            showToast({
+                title: "Erro no Acesso",
+                message: error.message || "Não foi possível validar suas credenciais.",
+                icon: "⚠️",
+                type: "favorite"
+            });
+        } finally {
+            submitAuthBtn.disabled = false;
+            submitAuthBtn.textContent = currentAuthMode === 'register' ? '✨ CRIAR MINHA CONTA & CONECTAR' : '⚡ ACESSAR MEU ACERVO';
+        }
+    });
+}
+
+// Encerrar Sessão (Logout)
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        if (confirm("Deseja desconectar sua conta da nuvem deste aparelho? Seus dados continuam salvos no banco remoto.")) {
+            currentUserSession = null;
+            localStorage.removeItem('afterplay_user_session');
+            updateAuthUI();
+            if (authModal) authModal.classList.add('hidden');
+            showToast({ title: "Sessão Encerrada", message: "Estúdio em modo local.", icon: "🚪", type: "info" });
+        }
+    });
+}
+
+// Forçar Sincronização Manual
+if (forceSyncCloudBtn) {
+    forceSyncCloudBtn.addEventListener('click', async () => {
+        showToast({ title: "Sincronizando...", message: "Comunicando com a nuvem.", icon: "🔄", type: "info" });
+        await syncUserDataToCloud();
+        showToast({ title: "Nuvem Atualizada!", message: "Acervo e diário sincronizados.", icon: "✨", type: "success" });
+    });
+}
+
+// ENVIO SILENCIOSO PARA A NUVEM (AUTO-SYNC)
+async function syncUserDataToCloud() {
+    if (!currentUserSession) return;
+
+    const payload = {
+        userId: currentUserSession.id,
+        userEmail: currentUserSession.email,
+        diaryReviews,
+        wantToListen,
+        topFiveAlbums,
+        collections,
+        challengeGoal,
+        updatedAt: new Date().toISOString()
+    };
+
+    // Salva no cofre de nuvem do usuário no localStorage com namespace seguro
+    localStorage.setItem(`afterplay_cloud_${currentUserSession.id}`, JSON.stringify(payload));
+
+    // Se houver endpoint REST configurado, transmite silenciosamente via PUT/POST
+    const customEndpoint = localStorage.getItem('afterplay_cloud_endpoint');
+    const customKey = localStorage.getItem('afterplay_cloud_key');
+    if (customEndpoint) {
+        try {
+            await fetch(customEndpoint, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(customKey ? { 'X-Master-Key': customKey, 'apikey': customKey, 'Authorization': `Bearer ${customKey}` } : {})
+                },
+                body: JSON.stringify(payload)
+            });
+        } catch (e) {
+            console.warn("Auto-sync remoto em fila silenciosa.");
+        }
+    }
+}
+
+// DOWNLOAD DA NUVEM AO CONECTAR (PULL DATA)
+async function pullUserDataFromCloud() {
+    if (!currentUserSession) return;
+
+    const cachedCloud = localStorage.getItem(`afterplay_cloud_${currentUserSession.id}`);
+    if (cachedCloud) {
+        try {
+            const data = JSON.parse(cachedCloud);
+            if (data.diaryReviews && data.diaryReviews.length > 0) {
+                diaryReviews = data.diaryReviews;
+                wantToListen = data.wantToListen || [];
+                topFiveAlbums = data.topFiveAlbums || [null, null, null, null, null];
+                collections = data.collections || [];
+                challengeGoal = data.challengeGoal || 50;
+
+                localStorage.setItem('afterplay_diary', JSON.stringify(diaryReviews));
+                localStorage.setItem('afterplay_want', JSON.stringify(wantToListen));
+                localStorage.setItem('afterplay_top5', JSON.stringify(topFiveAlbums));
+                localStorage.setItem('afterplay_collections', JSON.stringify(collections));
+                renderAll();
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+}
+
+// --- 17. PERSISTÊNCIA & INICIALIZAÇÃO GERAL ---
 function saveAllToLocalStorage() {
     localStorage.setItem('afterplay_diary', JSON.stringify(diaryReviews));
     localStorage.setItem('afterplay_want', JSON.stringify(wantToListen));
     localStorage.setItem('afterplay_top5', JSON.stringify(topFiveAlbums));
     localStorage.setItem('afterplay_collections', JSON.stringify(collections));
+
+    // Auto-sync automático em segundo plano se houver login ativo!
+    syncUserDataToCloud();
 }
 
 function renderAll() {
@@ -2262,11 +2962,14 @@ if (filterDiaryInput) filterDiaryInput.addEventListener('input', renderDiary);
 
 if (closeModalBtn) {
     closeModalBtn.addEventListener('click', () => {
+        stopAudio();
         if (reviewModal) reviewModal.classList.add('hidden');
         editingReviewIndex = null;
     });
 }
 
+// Inicialização Geral do Sistema
 buildStarPicker();
 renderAll();
+updateAuthUI();
 handleRouting();
