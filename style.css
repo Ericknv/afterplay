@@ -107,59 +107,232 @@ body {
     color: var(--text-primary);
 }
 
-/* Barra de Busca Interativa no Cabeçalho */
+/* ==========================================================================
+   BARRA DE BUSCA DE ESTÚDIO & QUICK DROPDOWN (V4.5)
+   ========================================================================== */
 .header-center {
     flex: 1;
-    max-width: 480px;
+    max-width: 520px;
     margin: 0 24px;
+    position: relative;
 }
 
+/* Estado Padrão (Idle) */
 .top-search-form {
     display: flex;
     align-items: center;
-    gap: 10px;
-    background-color: var(--bg-obsidian);
-    border: 1px solid var(--border-subtle);
-    padding: 6px 14px;
-    border-radius: 8px;
+    gap: 12px;
+    background-color: #121010;
+    border: 1px solid #262120;
+    height: 40px;
+    padding: 0 12px;
+    border-radius: 6px;
+    position: relative;
     transition: all 0.2s ease;
 }
 
+/* Estado de Hover */
+.top-search-form:hover {
+    border-color: #3A3533;
+}
+
+/* Estado Ativo / Focado (Focus) */
 .top-search-form:focus-within {
     border-color: var(--amber-glow);
-    box-shadow: 0 0 12px var(--amber-soft);
-    background-color: var(--bg-panel);
+    background-color: #171413;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.15);
 }
 
-.quick-search-icon {
-    font-size: 0.85rem;
-    opacity: 0.7;
+/* Ícone de Lupa em Traço Limpo */
+.search-lens-svg {
+    width: 17px;
+    height: 17px;
+    stroke: var(--text-muted); /* #57534E */
+    flex-shrink: 0;
+    transition: stroke 0.2s ease, transform 0.2s ease;
 }
 
+.top-search-form:focus-within .search-lens-svg {
+    stroke: var(--amber-glow);
+    transform: scale(1.05);
+}
+
+/* Input Tipográfico */
 .top-search-input {
     flex: 1;
     background: transparent;
     border: none;
-    color: var(--text-primary);
-    font-size: 0.88rem;
+    color: var(--text-primary); /* #F5F2EB */
+    font-size: 0.86rem;
     font-family: 'Inter', sans-serif;
     outline: none;
+    line-height: 1.2;
 }
 
 .top-search-input::placeholder {
-    color: var(--text-muted);
+    color: var(--text-muted); /* #57534E */
 }
 
-.quick-search-shortcut {
+/* Tecla Mecânica de Console (Kbd) */
+.quick-search-kbd {
     font-family: 'Space Mono', monospace;
-    font-size: 0.72rem;
-    background-color: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    font-size: 0.72rem; /* 11.5px */
+    color: var(--text-secondary); /* #A8A29E */
+    background-color: #171413;
+    border: 1px solid #262120;
     padding: 2px 7px;
     border-radius: 4px;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 1px 0 rgba(0, 0, 0, 0.6);
+    user-select: none;
+    line-height: 1.2;
+}
+
+.top-search-form:focus-within .quick-search-kbd {
+    border-color: rgba(245, 158, 11, 0.3);
     color: var(--amber-glow);
 }
 
+/* ==========================================================================
+   DROPDOWN FLUTUANTE DE RESULTADOS RÁPIDOS (QUICK SEARCH MODAL)
+   ========================================================================== */
+.quick-search-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: linear-gradient(180deg, #191514 0%, #121010 100%);
+    border: 1px solid var(--border-subtle);
+    border-top: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 8px;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.85), 0 0 20px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    animation: fadeInDropdown 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeInDropdown {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.quick-dropdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid #231E1D;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.quick-status-tag {
+    color: var(--amber-glow);
+    font-weight: 700;
+}
+
+.quick-results-list {
+    max-height: 310px;
+    overflow-y: auto;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.quick-empty-hint {
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+/* Item de Resultado no Dropdown */
+.quick-result-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+    border: 1px solid transparent;
+}
+
+.quick-result-item:hover,
+.quick-result-item.selected {
+    background-color: var(--bg-panel-hover);
+    border-color: #2E2826;
+}
+
+.quick-result-thumb {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    object-fit: cover;
+    border: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+}
+
+.quick-result-meta {
+    flex: 1;
+    overflow: hidden;
+}
+
+.quick-result-title {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.quick-result-artist {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.quick-result-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--amber-glow);
+    padding: 3px 8px;
+    background-color: var(--amber-soft);
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+/* Rodapé de Atalhos de Teclado */
+.quick-dropdown-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    background-color: #0E0C0C;
+    border-top: 1px solid #231E1D;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+.quick-dropdown-footer kbd {
+    background: #171413;
+    border: 1px solid #262120;
+    color: var(--text-secondary);
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-right: 4px;
+}
 /* Botão de Status / Perfil no Cabeçalho */
 .status-btn {
     background-color: var(--bg-obsidian);
@@ -201,7 +374,7 @@ body {
 }
 
 /* ==========================================================================
-   3. DRAWER DE NAVEGAÇÃO LATERAL
+   3. DRAWER DE NAVEGAÇÃO LATERAL (TAXONOMIA & VETORES V4.5)
    ========================================================================== */
 .drawer-overlay {
     position: fixed;
@@ -215,7 +388,7 @@ body {
     position: fixed;
     top: 0;
     left: 0;
-    width: 300px;
+    width: 320px;
     height: 100%;
     background-color: var(--bg-panel);
     border-right: 1px solid var(--border-subtle);
@@ -266,29 +439,81 @@ body {
     flex: 1;
 }
 
+/* Item Inativo: Tape Gray (#A8A29E) */
 .drawer-link {
     display: flex;
     align-items: center;
     gap: 14px;
     text-decoration: none;
-    color: var(--text-primary);
-    padding: 12px 16px;
+    color: var(--text-secondary);
+    padding: 10px 14px;
     border-radius: 8px;
     border: 1px solid transparent;
-    font-weight: 600;
-    font-size: 0.92rem;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
 }
 
+.drawer-icon-wrap {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.drawer-svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    transition: stroke 0.2s ease, transform 0.2s ease;
+}
+
+.drawer-text-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.drawer-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.2;
+    transition: color 0.2s ease;
+}
+
+.drawer-subtitle {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+    transition: color 0.2s ease;
+}
+
+/* Item Hover: Cream Paper (#F5F2EB) */
 .drawer-link:hover {
     background-color: var(--bg-panel-hover);
-    border-color: var(--border-subtle);
+    color: var(--text-primary);
 }
 
+.drawer-link:hover .drawer-svg {
+    transform: scale(1.08);
+}
+
+.drawer-link:hover .drawer-subtitle {
+    color: var(--text-secondary);
+}
+
+/* Item Ativo: Fundo #171413, borda #262120, aceso em Warm Amber (#F59E0B) */
 .drawer-link.active-route {
-    background-color: var(--amber-soft);
-    border-color: rgba(245, 158, 11, 0.4);
+    background-color: #171413;
+    border-color: #262120;
     color: var(--amber-glow);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.drawer-link.active-route .drawer-subtitle {
+    color: rgba(245, 158, 11, 0.7);
 }
 
 .drawer-footer {
@@ -920,6 +1145,29 @@ body {
     color: #121010;
 }
 
+/* ==========================================================================
+   CARIMBO FÍSICO DE ESTÚDIO (STUDIO TIMESTAMP V4.5)
+   ========================================================================== */
+.studio-press-stamp {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem; /* 11.5px */
+    letter-spacing: +0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted); /* #57534E (Muted Groove) */
+    margin-bottom: 8px;
+    display: inline-block;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+/* Destaque sutil com contorno pontilhado para notas máximas (5.0) */
+.studio-press-stamp.master-stamp {
+    border: 1px dashed var(--border-subtle); /* 1px dashed #262120 */
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: #78716c;
+    background-color: rgba(13, 11, 11, 0.4);
+}
 /* ==========================================================================
    8. VIEW: EXPLORAR O ACERVO (#/busca)
    ========================================================================== */
@@ -1727,6 +1975,11 @@ body {
    ========================================================================== */
 .logging-modal-box {
     max-width: 780px;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
 }
 
 .modal-body-logging {
@@ -1734,6 +1987,7 @@ body {
     gap: 24px;
 }
 
+/* Painel Esquerdo: Capa e Meta do Álbum */
 .modal-album-spotlight {
     width: 200px;
     flex-shrink: 0;
@@ -1750,22 +2004,28 @@ body {
 }
 
 .modal-album-headline {
+    font-family: 'Syne', sans-serif;
     font-size: 1rem;
     font-weight: 700;
+    color: var(--text-primary);
     margin-top: 10px;
+    line-height: 1.25;
 }
 
 .modal-album-subline {
     font-size: 0.78rem;
     color: var(--text-muted);
+    margin-top: 4px;
 }
 
+/* Painel Direito: Entradas e Controles */
 .modal-review-inputs {
     flex: 1;
     display: flex;
     flex-direction: column;
 }
 
+/* Seletor de Nota Final (0.5 a 5.0 com Meia Estrela) */
 .interactive-rating-block {
     background-color: var(--bg-obsidian);
     padding: 12px 16px;
@@ -1796,7 +2056,9 @@ body {
     transition: transform 0.1s ease;
 }
 
-.star-wrapper:hover { transform: scale(1.15); }
+.star-wrapper:hover {
+    transform: scale(1.15);
+}
 
 .star-fill {
     position: absolute;
@@ -1817,58 +2079,73 @@ body {
     z-index: 2;
 }
 
-.hitbox-left { left: 0; }
-.hitbox-right { right: 0; }
+.hitbox-left {
+    left: 0;
+}
 
+.hitbox-right {
+    right: 0;
+}
+
+/* ==========================================================================
+   FADERS DE MESA DE MIXAGEM ANALÓGICA & TRACKLIST
+   ========================================================================== */
 .tracklist-wrapper {
     background-color: var(--bg-obsidian);
     border: 1px solid var(--border-subtle);
     border-radius: 8px;
-    padding: 12px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
 }
 
 .tracklist-header-row {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 8px;
+    align-items: center;
+    margin-bottom: 10px;
     border-bottom: 1px solid var(--border-subtle);
-    padding-bottom: 6px;
+    padding-bottom: 8px;
 }
 
 .track-avg-badge {
     font-family: 'Space Mono', monospace;
     font-size: 0.72rem;
     color: var(--amber-glow);
+    font-weight: 700;
 }
 
 .tracklist-scroll-box {
-    max-height: 180px;
+    max-height: 240px;
     overflow-y: auto;
     padding-right: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .track-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 4px;
-    border-bottom: 1px solid #1f1b1a;
+    padding: 8px 10px;
+    background-color: rgba(23, 20, 19, 0.6);
+    border: 1px solid #1E1B1A;
+    border-radius: 6px;
     font-size: 0.85rem;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.track-row:hover { background-color: var(--bg-panel); }
+.track-row:hover {
+    background-color: var(--bg-panel);
+    border-color: #2E2826;
+}
 
 .track-num {
     font-family: 'Space Mono', monospace;
     color: var(--text-muted);
     font-size: 0.72rem;
-    width: 24px;
-}
-
-.track-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    width: 26px;
+    flex-shrink: 0;
 }
 
 .track-play-btn {
@@ -1881,9 +2158,11 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     cursor: pointer;
-    margin-right: 6px;
+    margin-right: 8px;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
 }
 
 .track-play-btn:hover {
@@ -1894,15 +2173,53 @@ body {
 .track-play-btn.playing {
     background-color: var(--amber-glow);
     color: #121010;
+    box-shadow: 0 0 10px var(--amber-soft);
 }
 
+.track-title-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'Inter', sans-serif;
+    color: var(--text-primary);
+    font-size: 0.84rem;
+}
+
+/* Controles de Fader e LED */
+.track-fader-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+/* Micro-LED Indicador de Pico de Estúdio */
+.peak-led-indicator {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: #262120;
+    border: 1px solid #332B29;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.peak-led-indicator.active {
+    background-color: var(--crimson-rec);
+    border-color: #ff6b8b;
+    box-shadow: 0 0 8px rgba(225, 29, 72, 0.75), 0 0 14px rgba(225, 29, 72, 0.35);
+}
+
+/* Botão de Faixa do Coração */
 .fav-track-btn {
     background: transparent;
     border: none;
     cursor: pointer;
     font-size: 0.95rem;
     opacity: 0.3;
-    transition: all 0.2s;
+    transition: transform 0.15s ease, opacity 0.2s ease;
+    padding: 0 2px;
+    line-height: 1;
 }
 
 .fav-track-btn.selected {
@@ -1910,20 +2227,87 @@ body {
     transform: scale(1.2);
 }
 
-.track-rating-select {
-    background-color: var(--bg-panel);
-    color: var(--amber-glow);
-    border: 1px solid var(--border-subtle);
-    border-radius: 4px;
-    padding: 2px 4px;
-    font-family: 'Space Mono', monospace;
-    font-size: 0.75rem;
+/* Fader de Console Analógico */
+.fader-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
 }
 
+.console-fader {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 86px;
+    height: 6px;
+    background: #0D0B0B;
+    border: 1px solid #262120;
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.console-fader:hover {
+    border-color: #3E3735;
+}
+
+.console-fader:focus {
+    border-color: var(--amber-glow);
+}
+
+/* Manopla Técnica (Thumb) no Webkit (Chrome, Edge, Safari) */
+.console-fader::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 18px;
+    background: linear-gradient(180deg, #332B29 0%, #1F1B1A 50%, #171413 100%);
+    border: 1px solid #4A403D;
+    border-radius: 2px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.75);
+    cursor: pointer;
+    /* Linha indicadora central em Cream Paper */
+    background-image: linear-gradient(to right, transparent 5px, #F5F2EB 5px, #F5F2EB 7px, transparent 7px);
+}
+
+.console-fader::-webkit-slider-thumb:hover {
+    border-color: var(--amber-glow);
+    box-shadow: 0 0 8px var(--amber-soft);
+}
+
+/* Manopla Técnica no Firefox */
+.console-fader::-moz-range-thumb {
+    width: 14px;
+    height: 18px;
+    background: linear-gradient(180deg, #332B29 0%, #1F1B1A 50%, #171413 100%);
+    border: 1px solid #4A403D;
+    border-radius: 2px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.75);
+    cursor: pointer;
+    background-image: linear-gradient(to right, transparent 5px, #F5F2EB 5px, #F5F2EB 7px, transparent 7px);
+}
+
+.fader-score-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    min-width: 38px;
+    text-align: right;
+    user-select: none;
+}
+
+.fader-score-tag.rated {
+    color: var(--amber-glow);
+    font-weight: 700;
+}
+
+/* Seletor de Atmosferas (Mood Chips) */
 .vibe-picker-row {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+    margin-top: 6px;
 }
 
 .vibe-select-chip {
@@ -1949,6 +2333,7 @@ body {
     font-weight: 700;
 }
 
+/* Campo da Resenha Crítica */
 .studio-textarea {
     width: 100%;
     height: 80px;
@@ -1961,13 +2346,15 @@ body {
     font-size: 0.88rem;
     resize: vertical;
     margin-top: 6px;
-}
-
-.studio-textarea:focus, .studio-input:focus, .studio-select:focus {
-    border-color: var(--amber-glow);
     outline: none;
+    transition: border-color 0.2s;
 }
 
+.studio-textarea:focus {
+    border-color: var(--amber-glow);
+}
+
+/* Botão de Salvamento Master */
 .btn-save-review {
     background-color: var(--amber-glow);
     color: #121010;
@@ -1978,10 +2365,13 @@ body {
     cursor: pointer;
     font-size: 0.92rem;
     letter-spacing: 0.5px;
-    transition: filter 0.2s;
+    transition: filter 0.2s, transform 0.1s;
 }
 
-.btn-save-review:hover { filter: brightness(1.1); }
+.btn-save-review:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
 
 /* ==========================================================================
    13. MODAL: CARD STUDIO 3.0 (.studio-card-modal-box)
@@ -2509,4 +2899,213 @@ body {
 
 .offline-ribbon.hidden {
     display: none !important;
+}
+/* ==========================================================================
+   ESTANTE "FILA DA VITROLA": MODO CRATE DIGGING (V4.5)
+   ========================================================================== */
+.crate-view-toggle-group {
+    display: flex;
+    gap: 4px;
+    background-color: var(--bg-obsidian);
+    border: 1px solid var(--border-subtle);
+    padding: 3px;
+    border-radius: 6px;
+}
+
+.crate-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.crate-toggle-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+}
+
+.crate-toggle-btn:hover {
+    color: var(--text-primary);
+}
+
+.crate-toggle-btn.active {
+    background-color: var(--bg-panel);
+    color: var(--amber-glow);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Área de Apresentação 3D */
+.crate-digging-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 520px;
+    background: radial-gradient(circle at 50% 20%, rgba(245, 158, 11, 0.05) 0%, #141110 50%, #0D0B0B 100%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.8);
+}
+
+.crate-status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 600px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #231E1D;
+    padding-bottom: 8px;
+}
+
+.crate-serial-stamp {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+}
+
+.crate-nav-hints {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+}
+
+.crate-nav-hints kbd {
+    background: #171413;
+    border: 1px solid #262120;
+    color: var(--amber-glow);
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-right: 4px;
+}
+
+/* Palco de Perspectiva Tridimensional */
+.crate-box-stage {
+    position: relative;
+    width: 100%;
+    max-width: 580px;
+    height: 360px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    perspective: 1200px;
+}
+
+/* Setas Laterais de Navegação */
+.crate-arrow-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(23, 20, 19, 0.75);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 100;
+    backdrop-filter: blur(6px);
+    transition: all 0.2s ease;
+}
+
+.crate-arrow-nav:hover {
+    border-color: var(--amber-glow);
+    color: var(--amber-glow);
+    background-color: var(--bg-panel);
+    transform: translateY(-50%) scale(1.1);
+}
+
+.crate-arrow-nav.left { left: 10px; }
+.crate-arrow-nav.right { right: 10px; }
+
+/* Pilha de Discos Empilhados */
+.crate-records-stack {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    transform-style: preserve-3d;
+}
+
+.crate-vinyl-item {
+    position: absolute;
+    inset: 0;
+    border-radius: 6px;
+    transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.45s ease, filter 0.45s ease;
+    cursor: pointer;
+    user-select: none;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85);
+}
+
+.crate-vinyl-item img {
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Painel de Metadados em Foco */
+.crate-focus-meta {
+    margin-top: 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    min-height: 90px;
+}
+
+.crate-focus-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    max-width: 480px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.crate-focus-artist {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.btn-crate-record {
+    margin-top: 8px;
+    background-color: var(--amber-glow);
+    color: #0D0B0B;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    padding: 10px 22px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-crate-record:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.35);
 }

@@ -134,10 +134,31 @@ window.dbAuth = {
     }
 };
 
-// Disponibilizado globalmente em window.executeSupabaseQuery
+// Disponibilizado globalmente em window.executeSupabaseQuery com Auto-Refresh de Token
 window.executeSupabaseQuery = async function(table, action, payload = null, filter = null) {
-    const session = window.dbAuth.getSession();
-    const token = session ? session.access_token : SUPABASE_ANON_KEY;
+    let token = SUPABASE_ANON_KEY;
+
+    // 1. Tenta recuperar o token atualizado diretamente pelo cliente do Supabase
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+        try {
+            const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            const { data } = await client.auth.getSession();
+            if (data && data.session && data.session.access_token) {
+                token = data.session.access_token;
+                window.dbAuth.setSession(data.session);
+            }
+        } catch (e) {
+            console.warn("Falha ao recuperar sessão ativa do SDK:", e);
+        }
+    }
+
+    // 2. Fallback para a sessão do localStorage caso o SDK não responda
+    if (token === SUPABASE_ANON_KEY) {
+        const session = window.dbAuth.getSession();
+        if (session && session.access_token) {
+            token = session.access_token;
+        }
+    }
 
     const headers = {
         'Content-Type': 'application/json',
@@ -148,45 +169,45 @@ window.executeSupabaseQuery = async function(table, action, payload = null, filt
     const url = `${SUPABASE_URL}/rest/v1/${table}`;
 
     try {
+        let res;
         if (action === 'SELECT') {
             const queryParam = filter ? `?${filter}` : '?select=*';
-            const res = await fetch(`${url}${queryParam}`, { method: 'GET', headers });
-            return await res.json();
-        }
-
-        if (action === 'INSERT') {
-            const res = await fetch(url, {
+            res = await fetch(`${url}${queryParam}`, { method: 'GET', headers });
+        } else if (action === 'INSERT') {
+            res = await fetch(url, {
                 method: 'POST',
                 headers: { ...headers, 'Prefer': 'return=representation' },
                 body: JSON.stringify(payload)
             });
-            return await res.json();
-        }
-
-        if (action === 'UPSERT') {
-            const res = await fetch(url, {
+        } else if (action === 'UPSERT') {
+            res = await fetch(url, {
                 method: 'POST',
                 headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
                 body: JSON.stringify(payload)
             });
-            return await res.json();
-        }
-
-        if (action === 'UPDATE') {
-            const res = await fetch(`${url}?${filter}`, {
+        } else if (action === 'UPDATE') {
+            res = await fetch(`${url}?${filter}`, {
                 method: 'PATCH',
                 headers: { ...headers, 'Prefer': 'return=representation' },
                 body: JSON.stringify(payload)
             });
-            return await res.json();
-        }
-
-        if (action === 'DELETE') {
-            const res = await fetch(`${url}?${filter}`, { method: 'DELETE', headers });
+        } else if (action === 'DELETE') {
+            res = await fetch(`${url}?${filter}`, { method: 'DELETE', headers });
             return true;
         }
+
+        const data = await res.json();
+
+        // Se o Supabase ainda retornar erro de token expirado
+        if (!res.ok && (data.message === 'JWT expired' || data.msg === 'JWT expired' || res.status === 401)) {
+            window.dbAuth.signOut();
+            window.location.reload();
+            throw new Error("Sua sessão expirou por segurança. Faça login novamente.");
+        }
+
+        return data;
     } catch (err) {
         console.error(`Erro na tabela ${table} (${action}):`, err);
-        return null;
+        throw err;
     }
 };

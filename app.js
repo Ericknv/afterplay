@@ -701,7 +701,7 @@ async function loadAllUserDataFromSupabase() {
             while (topFiveAlbums.length < 5) topFiveAlbums.push(null);
         }
 
-        // 2. Reviews
+// 2. Reviews
         const reviews = await executeSupabaseQuery('reviews', 'SELECT', null, `user_id=eq.${currentUser.id}&order=created_at.desc`);
         if (reviews && Array.isArray(reviews)) {
             diaryReviews = reviews.map(r => ({
@@ -711,11 +711,11 @@ async function loadAllUserDataFromSupabase() {
                 artist: r.artist,
                 year: r.year,
                 cover: r.cover,
-                rating: parseFloat(r.rating),
-                favTrack: r.fav_track,
+                rating: parseFloat(r.rating) || 0,
+                favTrack: r.fav_track || "Nenhuma selecionada",
                 vibes: r.vibes || [],
-                reviewText: r.review_text,
-                date: r.date
+                reviewText: r.review_text || "",
+                date: r.date || (r.created_at ? r.created_at.split('T')[0] : new Date().toISOString().split('T')[0])
             }));
         }
 
@@ -1265,36 +1265,177 @@ if (dedicatedSearchInput) {
     });
 }
 
-// --- INTEGRAÇÃO DA BUSCA RÁPIDA SUPERIOR DO CABEÇALHO ---
+// --- BARRA DE BUSCA DE ESTÚDIO & QUICK DROPDOWN (V4.5) ---
 const topSearchForm = document.getElementById('topSearchForm');
 const topSearchInput = document.getElementById('topSearchInput');
+const quickSearchDropdown = document.getElementById('quickSearchDropdown');
+const quickSearchResultsList = document.getElementById('quickSearchResultsList');
+const quickSearchStatus = document.getElementById('quickSearchStatus');
 
-if (topSearchForm && topSearchInput) {
-    topSearchForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const query = topSearchInput.value.trim();
-        if (query) {
-            if (dedicatedSearchInput) {
-                dedicatedSearchInput.value = query;
+let quickSearchDebounceTimer = null;
+let currentQuickResults = [];
+let selectedQuickIndex = -1;
+
+function openQuickDropdown() {
+    if (quickSearchDropdown) quickSearchDropdown.classList.remove('hidden');
+}
+
+function closeQuickDropdown() {
+    if (quickSearchDropdown) quickSearchDropdown.classList.add('hidden');
+    selectedQuickIndex = -1;
+}
+
+async function executeQuickSearch(query) {
+    if (!query || query.length < 2) {
+        if (quickSearchResultsList) {
+            quickSearchResultsList.innerHTML = `<p class="quick-empty-hint">Digite o nome de um álbum ou artista...</p>`;
+        }
+        if (quickSearchStatus) quickSearchStatus.textContent = "PRONTO";
+        currentQuickResults = [];
+        return;
+    }
+
+    if (quickSearchStatus) quickSearchStatus.textContent = "SINTONIZANDO...";
+
+    try {
+        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=album&limit=6`;
+        const data = await fetchFromiTunes(url);
+
+        if (!data.results || data.results.length === 0) {
+            if (quickSearchResultsList) {
+                quickSearchResultsList.innerHTML = `<p class="quick-empty-hint">Nenhum disco localizado para "${sanitize(query)}".</p>`;
             }
-            if (window.location.hash !== '#/busca') {
-                window.location.hash = '#/busca';
-            }
-            searchAlbums();
-            topSearchInput.blur();
+            if (quickSearchStatus) quickSearchStatus.textContent = "SEM RESULTADOS";
+            currentQuickResults = [];
+            return;
+        }
+
+        currentQuickResults = data.results;
+        selectedQuickIndex = -1;
+        if (quickSearchStatus) quickSearchStatus.textContent = `${currentQuickResults.length} DISCOS`;
+
+        if (quickSearchResultsList) {
+            quickSearchResultsList.innerHTML = '';
+            currentQuickResults.forEach((album, idx) => {
+                const cover = album.artworkUrl100 ? album.artworkUrl100.replace('100x100bb', '200x200bb') : 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=200';
+                const year = album.releaseDate ? album.releaseDate.substring(0, 4) : 'N/A';
+                
+                // Média Afterplay (se o álbum já foi avaliado em Sessões)
+                const inDiary = diaryReviews.find(r => String(r.id) === String(album.collectionId));
+                const scoreText = inDiary ? `★ ${inDiary.rating.toFixed(1)}` : 'DISCO';
+
+                const itemRow = document.createElement('div');
+                itemRow.className = 'quick-result-item';
+                itemRow.dataset.index = idx;
+                itemRow.innerHTML = `
+                    <img src="${cover}" alt="${sanitize(album.collectionName)}" class="quick-result-thumb">
+                    <div class="quick-result-meta">
+                        <div class="quick-result-title" title="${sanitize(album.collectionName)}">${sanitize(album.collectionName)}</div>
+                        <div class="quick-result-artist">${sanitize(album.artistName)} · ${year}</div>
+                    </div>
+                    <span class="quick-result-badge">${scoreText}</span>
+                `;
+
+                itemRow.addEventListener('click', () => {
+                    closeQuickDropdown();
+                    openAlbumModal(album.collectionId);
+                });
+
+                quickSearchResultsList.appendChild(itemRow);
+            });
+        }
+    } catch (e) {
+        console.warn("Erro no quick search:", e);
+        if (quickSearchStatus) quickSearchStatus.textContent = "FALHA";
+    }
+}
+
+if (topSearchInput) {
+    // Abrir dropdown ao focar
+    topSearchInput.addEventListener('focus', () => {
+        openQuickDropdown();
+        if (topSearchInput.value.trim().length >= 2) {
+            executeQuickSearch(topSearchInput.value.trim());
         }
     });
 
-    // Atalho global: pressionar "/" fora de campos de texto foca a barra de pesquisa
-    window.addEventListener('keydown', (e) => {
-        if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+    // Digitação em tempo real com debounce de 280ms
+    topSearchInput.addEventListener('input', () => {
+        const val = topSearchInput.value.trim();
+        clearTimeout(quickSearchDebounceTimer);
+        quickSearchDebounceTimer = setTimeout(() => {
+            executeQuickSearch(val);
+        }, 280);
+    });
+
+    // Navegação por teclado: ↑, ↓, Enter e Esc
+    topSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeQuickDropdown();
+            topSearchInput.blur();
+            return;
+        }
+
+        const items = quickSearchResultsList ? quickSearchResultsList.querySelectorAll('.quick-result-item') : [];
+        if (!items || items.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
             e.preventDefault();
-            topSearchInput.focus();
-            topSearchInput.select();
+            selectedQuickIndex = (selectedQuickIndex + 1) % items.length;
+            updateQuickSelection(items);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedQuickIndex = (selectedQuickIndex - 1 + items.length) % items.length;
+            updateQuickSelection(items);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (selectedQuickIndex >= 0 && currentQuickResults[selectedQuickIndex]) {
+                const targetAlbum = currentQuickResults[selectedQuickIndex];
+                closeQuickDropdown();
+                openAlbumModal(targetAlbum.collectionId);
+            } else {
+                // Se pressionar Enter sem selecionar item, direciona para a busca completa
+                const query = topSearchInput.value.trim();
+                if (query) {
+                    closeQuickDropdown();
+                    if (dedicatedSearchInput) dedicatedSearchInput.value = query;
+                    if (window.location.hash !== '#/busca') window.location.hash = '#/busca';
+                    searchAlbums();
+                }
+            }
         }
     });
 }
 
+function updateQuickSelection(items) {
+    items.forEach((it, i) => {
+        if (i === selectedQuickIndex) {
+            it.classList.add('selected');
+            it.scrollIntoView({ block: 'nearest' });
+        } else {
+            it.classList.remove('selected');
+        }
+    });
+}
+
+// Fechar o dropdown ao clicar fora
+document.addEventListener('click', (e) => {
+    if (topSearchForm && !topSearchForm.contains(e.target)) {
+        closeQuickDropdown();
+    }
+});
+
+// Atalho global "/" para focar na busca
+window.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        if (topSearchInput) {
+            topSearchInput.focus();
+            topSearchInput.select();
+            openQuickDropdown();
+        }
+    }
+});
 // --- 13. MODAL DE AVALIAÇÃO FAIXA A FAIXA ---
 async function openAlbumModal(collectionId, editDbId = null) {
     stopAudio();
@@ -1362,8 +1503,9 @@ async function openAlbumModal(collectionId, editDbId = null) {
                 const row = document.createElement('div');
                 row.className = 'track-row';
 
+                // Lado Esquerdo: Play preview, número e nome da música
                 const leftDiv = document.createElement('div');
-                leftDiv.style.cssText = 'display: flex; align-items: center; overflow: hidden;';
+                leftDiv.style.cssText = 'display: flex; align-items: center; overflow: hidden; flex: 1; padding-right: 12px;';
 
                 if (track.previewUrl) {
                     const playBtn = document.createElement('button');
@@ -1382,41 +1524,81 @@ async function openAlbumModal(collectionId, editDbId = null) {
                 numSpan.textContent = `${num}.`;
 
                 const nameSpan = document.createElement('span');
-                nameSpan.style.cssText = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: 4px;';
+                nameSpan.className = 'track-title-text';
                 nameSpan.textContent = track.trackName;
+                nameSpan.title = track.trackName;
 
                 leftDiv.appendChild(numSpan);
                 leftDiv.appendChild(nameSpan);
 
+                // Lado Direito: Micro-LED, Coração e Fader de Console
                 const rightDiv = document.createElement('div');
-                rightDiv.className = 'track-controls';
+                rightDiv.className = 'track-fader-controls';
 
+                // Micro-LED de pico
+                const led = document.createElement('span');
+                led.className = `peak-led-indicator ${isFav ? 'active' : ''}`;
+                led.title = isFav ? 'Pico: Faixa Favorita' : 'Indicador de Pico de Mixagem';
+
+                // Botão de Favoritar
                 const favBtn = document.createElement('button');
                 favBtn.type = 'button';
                 favBtn.className = `fav-track-btn ${isFav ? 'selected' : ''}`;
                 favBtn.title = 'Marcar como Faixa Favorita';
                 favBtn.textContent = '❤️';
-                favBtn.addEventListener('click', () => selectFavoriteTrack(favBtn, track.trackName));
 
-                const selectRating = document.createElement('select');
-                selectRating.className = 'track-rating-select';
-                selectRating.innerHTML = `
-                    <option value="">--</option>
-                    <option value="5.0">5.0 ★</option>
-                    <option value="4.5">4.5 ★</option>
-                    <option value="4.0">4.0 ★</option>
-                    <option value="3.5">3.5 ★</option>
-                    <option value="3.0">3.0 ★</option>
-                    <option value="2.5">2.5 ★</option>
-                    <option value="2.0">2.0 ★</option>
-                    <option value="1.5">1.5 ★</option>
-                    <option value="1.0">1.0 ★</option>
-                    <option value="0.5">0.5 ★</option>
-                `;
-                selectRating.addEventListener('change', recalculateTrackAverage);
+                // Fader Wrapper
+                const faderWrap = document.createElement('div');
+                faderWrap.className = 'fader-wrapper';
 
+                const fader = document.createElement('input');
+                fader.type = 'range';
+                fader.min = '0';
+                fader.max = '5.0';
+                fader.step = '0.5';
+                fader.value = '0';
+                fader.className = 'console-fader';
+                fader.title = 'Fader de mixagem (0.5 a 5.0 estrelas)';
+
+                const scoreTag = document.createElement('span');
+                scoreTag.className = 'fader-score-tag';
+                scoreTag.textContent = '--';
+
+                // Ação do Fader: recalcula média e atualiza LED
+                fader.addEventListener('input', () => {
+                    const val = parseFloat(fader.value);
+                    if (val > 0) {
+                        scoreTag.textContent = `${val.toFixed(1)}★`;
+                        scoreTag.classList.add('rated');
+                        if (val >= 5.0 || favBtn.classList.contains('selected')) {
+                            led.classList.add('active');
+                        } else {
+                            led.classList.remove('active');
+                        }
+                    } else {
+                        scoreTag.textContent = '--';
+                        scoreTag.classList.remove('rated');
+                        if (!favBtn.classList.contains('selected')) {
+                            led.classList.remove('active');
+                        }
+                    }
+                    recalculateTrackAverageFromFaders();
+                });
+
+                // Ação de Favoritar
+                favBtn.addEventListener('click', () => {
+                    selectFavoriteTrack(favBtn, track.trackName);
+                    // Atualiza todos os LEDs: apenas a selecionada acende
+                    document.querySelectorAll('.peak-led-indicator').forEach(l => l.classList.remove('active'));
+                    led.classList.add('active');
+                });
+
+                faderWrap.appendChild(fader);
+                faderWrap.appendChild(scoreTag);
+
+                rightDiv.appendChild(led);
                 rightDiv.appendChild(favBtn);
-                rightDiv.appendChild(selectRating);
+                rightDiv.appendChild(faderWrap);
 
                 row.appendChild(leftDiv);
                 row.appendChild(rightDiv);
@@ -1444,20 +1626,22 @@ function selectFavoriteTrack(btnElement, trackName) {
     });
 }
 
-function recalculateTrackAverage() {
-    const selects = document.querySelectorAll('.track-rating-select');
+// --- CÁLCULO DA MÉDIA ANALÓGICA A PARTIR DOS FADERS ---
+function recalculateTrackAverageFromFaders() {
+    const faders = document.querySelectorAll('.console-fader');
     let sum = 0;
     let count = 0;
 
-    selects.forEach(sel => {
-        if (sel.value !== '') {
-            sum += parseFloat(sel.value);
+    faders.forEach(f => {
+        const val = parseFloat(f.value);
+        if (val > 0) {
+            sum += val;
             count++;
         }
     });
 
     if (count > 0) {
-        const avg = (sum / count);
+        const avg = sum / count;
         if (calculatedAvgBadge) calculatedAvgBadge.textContent = `Média das Faixas: ${avg.toFixed(1)} ★`;
         const roundedHalf = Math.round(avg * 2) / 2;
         setVisualScore(roundedHalf);
@@ -1468,63 +1652,88 @@ function recalculateTrackAverage() {
 
 if (saveReviewBtn) {
     saveReviewBtn.addEventListener('click', async () => {
-        if (!currentAlbumInModal || !currentUser) return;
+        if (!currentAlbumInModal || !currentUser) {
+            showToast({ title: "Acesso Não Identificado", message: "Faça login para salvar avaliações.", icon: "⚠️", type: "info" });
+            return;
+        }
 
         saveReviewBtn.disabled = true;
         saveReviewBtn.textContent = "SALVANDO NO SUPABASE...";
 
         const reviewText = (reviewTextInput && reviewTextInput.value.trim()) || "Álbum registrado no Afterplay.";
-        const dateStr = new Date().toLocaleDateString('pt-BR');
+        
+        // Data atual compatível com qualquer tipo de coluna do banco
+        const now = new Date();
+        const isoDate = now.toISOString().split('T')[0];
 
         try {
             if (editingReviewId !== null) {
-                await executeSupabaseQuery('reviews', 'UPDATE', {
-                    rating: selectedVisualScore,
-                    fav_track: selectedFavTrack,
-                    vibes: selectedVibes,
+                const updateRes = await executeSupabaseQuery('reviews', 'UPDATE', {
+                    rating: parseFloat(selectedVisualScore),
+                    fav_track: selectedFavTrack || "Nenhuma selecionada",
+                    vibes: selectedVibes || [],
                     review_text: reviewText
                 }, `id=eq.${editingReviewId}&user_id=eq.${currentUser.id}`);
 
+                if (updateRes && updateRes.error) throw new Error(updateRes.error.message || "Erro no banco");
+
                 showToast({ title: "Review Atualizada", message: "Alterações gravadas no Supabase.", icon: "🎛️", type: "success" });
             } else {
-                await executeSupabaseQuery('reviews', 'INSERT', {
+                const newReviewPayload = {
                     user_id: currentUser.id,
-                    album_id: currentAlbumInModal.id,
-                    title: currentAlbumInModal.title,
-                    artist: currentAlbumInModal.artist,
-                    year: currentAlbumInModal.year,
-                    cover: currentAlbumInModal.cover,
-                    rating: selectedVisualScore,
-                    fav_track: selectedFavTrack,
-                    vibes: selectedVibes,
+                    album_id: String(currentAlbumInModal.id),
+                    title: String(currentAlbumInModal.title || ''),
+                    artist: String(currentAlbumInModal.artist || ''),
+                    year: String(currentAlbumInModal.year || ''),
+                    cover: String(currentAlbumInModal.cover || ''),
+                    rating: parseFloat(selectedVisualScore),
+                    fav_track: selectedFavTrack || "Nenhuma selecionada",
+                    vibes: selectedVibes || [],
                     review_text: reviewText,
-                    date: dateStr
-                });
+                    date: isoDate
+                };
 
+                const insertRes = await executeSupabaseQuery('reviews', 'INSERT', newReviewPayload);
+                
+                if (insertRes && (insertRes.error || insertRes.code)) {
+                    throw new Error(insertRes.message || insertRes.details || "Erro ao gravar no Supabase");
+                }
+
+                // Remove da Fila da Vitrola caso estivesse pendente
                 await executeSupabaseQuery('want_to_listen', 'DELETE', null, `user_id=eq.${currentUser.id}&album_id=eq.${currentAlbumInModal.id}`);
 
                 showToast({
                     title: "Disco Catalogado!",
-                    message: `Gravado no banco com nota ${selectedVisualScore.toFixed(1)} ★.`,
+                    message: `"${currentAlbumInModal.title}" gravado com ${selectedVisualScore.toFixed(1)} ★.`,
                     icon: "💽",
                     type: "success"
                 });
             }
 
+            // 1. Recarrega os dados da nuvem e redesenha diário, métricas e coleções
             await loadAllUserDataFromSupabase();
+            
+            // 2. Fecha apenas a modal e para prévias de áudio
             stopAudio();
             if (reviewModal) reviewModal.classList.add('hidden');
             editingReviewId = null;
 
+            // 🎯 O usuário permanece na mesma tela onde estava (busca, discografia, etc.)
+
         } catch (err) {
-            console.error(err);
-            showToast({ title: "Erro ao Salvar", message: err.message, icon: "⚠️", type: "favorite" });
+            console.error("Falha detalhada ao salvar review:", err);
+            showToast({ 
+                title: "Erro ao Salvar", 
+                message: err.message || "Verifique o console do navegador.", 
+                icon: "⚠️", 
+                type: "favorite" 
+            });
         } finally {
             saveReviewBtn.disabled = false;
+            saveReviewBtn.textContent = "💾 SALVAR AVALIAÇÃO NO BANCO";
         }
     });
 }
-
 async function deleteDiaryReview(dbId, title) {
     if (!currentUser) return;
     if (confirm(`Tem certeza que deseja retirar "${title}" do seu banco de dados?`)) {
@@ -1538,39 +1747,156 @@ async function deleteDiaryReview(dbId, title) {
     }
 }
 
-// --- 14. WANT TO LISTEN ---
-async function addToWantList(collectionId) {
-    if (!currentUser) return;
+// --- 14. WANT TO LISTEN & MODO CRATE DIGGING (V4.5) ---
+let currentWantViewMode = 'grid'; // 'grid' ou 'crate'
+let currentCrateIndex = 0;
 
-    let found = lastSearchResults.find(a => a.collectionId === collectionId);
-    if (!found) {
-        const inDiary = diaryReviews.find(a => a.id === collectionId);
-        if (inDiary) found = { collectionId: inDiary.id, collectionName: inDiary.title, artistName: inDiary.artist, releaseDate: inDiary.year, artworkUrl100: inDiary.cover };
-    }
-    if (!found) return;
+const toggleGridWantBtn = document.getElementById('toggleGridWantBtn');
+const toggleCrateWantBtn = document.getElementById('toggleCrateWantBtn');
+const crateDiggingContainer = document.getElementById('crateDiggingContainer');
+const crateRecordsStack = document.getElementById('crateRecordsStack');
+const crateIndexIndicator = document.getElementById('crateIndexIndicator');
+const crateFocusMeta = document.getElementById('crateFocusMeta');
+const cratePrevBtn = document.getElementById('cratePrevBtn');
+const crateNextBtn = document.getElementById('crateNextBtn');
 
-    if (wantToListen.some(item => item.id === collectionId)) {
-        showToast({ title: "Já na Fila", message: `"${found.collectionName}" já está cadastrado!`, icon: "🕒", type: "info" });
+if (toggleGridWantBtn && toggleCrateWantBtn) {
+    toggleGridWantBtn.addEventListener('click', () => {
+        currentWantViewMode = 'grid';
+        toggleGridWantBtn.classList.add('active');
+        toggleCrateWantBtn.classList.remove('active');
+        if (wantGrid) wantGrid.classList.remove('hidden');
+        if (crateDiggingContainer) crateDiggingContainer.classList.add('hidden');
+        renderWantList();
+    });
+
+    toggleCrateWantBtn.addEventListener('click', () => {
+        currentWantViewMode = 'crate';
+        toggleCrateWantBtn.classList.add('active');
+        toggleGridWantBtn.classList.remove('active');
+        if (wantGrid) wantGrid.classList.add('hidden');
+        if (crateDiggingContainer) crateDiggingContainer.classList.remove('hidden');
+        currentCrateIndex = 0;
+        renderCrateDigging();
+    });
+}
+
+function renderCrateDigging() {
+    if (!crateRecordsStack || !crateFocusMeta) return;
+    crateRecordsStack.innerHTML = '';
+    crateFocusMeta.innerHTML = '';
+
+    if (wantToListen.length === 0) {
+        if (crateIndexIndicator) crateIndexIndicator.textContent = '// CRATE DIGGING · NENHUM VINIL';
+        crateRecordsStack.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 0.85rem; text-align: center;">
+                Sua estante de garimpo está vazia.<br>Explore o acervo para adicionar discos!
+            </div>
+        `;
         return;
     }
 
-    try {
-        await executeSupabaseQuery('want_to_listen', 'INSERT', {
-            user_id: currentUser.id,
-            album_id: found.collectionId,
-            title: found.collectionName,
-            artist: found.artistName,
-            year: found.releaseDate ? found.releaseDate.substring(0, 4) : 'N/A',
-            cover: found.artworkUrl100.replace('100x100bb', '600x600bb')
+    // Garante limites do índice
+    if (currentCrateIndex < 0) currentCrateIndex = 0;
+    if (currentCrateIndex >= wantToListen.length) currentCrateIndex = wantToListen.length - 1;
+
+    const total = wantToListen.length;
+    const currentNum = String(currentCrateIndex + 1).padStart(2, '0');
+    const totalNum = String(total).padStart(2, '0');
+    if (crateIndexIndicator) {
+        crateIndexIndicator.textContent = `// CRATE DIGGING · DISCO ${currentNum} DE ${totalNum}`;
+    }
+
+    // Renderiza a pilha de discos com cálculo de profundidade 3D
+    wantToListen.forEach((album, idx) => {
+        const item = document.createElement('div');
+        item.className = 'crate-vinyl-item';
+        
+        const offset = idx - currentCrateIndex;
+
+        // Discos anteriores (já folheados para a esquerda)
+        if (offset < 0) {
+            item.style.transform = `translateX(${offset * 40 - 60}px) translateY(${offset * 4}px) rotateZ(-12deg) scale(${1 + offset * 0.05})`;
+            item.style.opacity = Math.max(0, 1 + offset * 0.4);
+            item.style.zIndex = 10 + offset;
+            item.style.pointerEvents = 'none';
+        } 
+        // Disco em foco (frontal)
+        else if (offset === 0) {
+            item.style.transform = `translateX(0px) translateY(0px) rotateZ(0deg) scale(1.05)`;
+            item.style.opacity = '1';
+            item.style.zIndex = 50;
+            item.style.filter = 'drop-shadow(0 15px 30px rgba(0,0,0,0.9))';
+        } 
+        // Discos posteriores empilhados atrás na caixa
+        else {
+            const zDistance = -offset * 35;
+            const yOffset = -offset * 14;
+            item.style.transform = `translateZ(${zDistance}px) translateY(${yOffset}px) scale(${1 - offset * 0.04})`;
+            item.style.opacity = Math.max(0.2, 1 - offset * 0.2);
+            item.style.zIndex = 50 - offset;
+        }
+
+        item.innerHTML = `<img src="${album.cover}" alt="${sanitize(album.title)}" draggable="false">`;
+        item.addEventListener('click', () => {
+            currentCrateIndex = idx;
+            renderCrateDigging();
         });
 
-        showToast({ title: "Na Fila da Vitrola", message: `"${found.collectionName}" salvo na nuvem!`, icon: "📻", type: "info" });
-        await loadAllUserDataFromSupabase();
-    } catch (err) {
-        console.error(err);
+        crateRecordsStack.appendChild(item);
+    });
+
+    // Metadados da obra em foco
+    const activeAlbum = wantToListen[currentCrateIndex];
+    if (activeAlbum) {
+        crateFocusMeta.innerHTML = `
+            <div class="crate-focus-title">${sanitize(activeAlbum.title)}</div>
+            <div class="crate-focus-artist">${sanitize(activeAlbum.artist)} • ${activeAlbum.year}</div>
+            <button type="button" class="btn-crate-record" onclick="openAlbumModal(${activeAlbum.id})">
+                [ OUVIR AGORA / REGISTRAR ]
+            </button>
+        `;
     }
 }
 
+// Navegação por setas do teclado no Modo Garimpo
+window.addEventListener('keydown', (e) => {
+    if (currentWantViewMode !== 'crate') return;
+    if (window.location.hash !== '#/want-to-listen') return;
+    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+
+    if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (currentCrateIndex < wantToListen.length - 1) {
+            currentCrateIndex++;
+            renderCrateDigging();
+        }
+    } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (currentCrateIndex > 0) {
+            currentCrateIndex--;
+            renderCrateDigging();
+        }
+    }
+});
+
+if (cratePrevBtn) {
+    cratePrevBtn.addEventListener('click', () => {
+        if (currentCrateIndex > 0) {
+            currentCrateIndex--;
+            renderCrateDigging();
+        }
+    });
+}
+
+if (crateNextBtn) {
+    crateNextBtn.addEventListener('click', () => {
+        if (currentCrateIndex < wantToListen.length - 1) {
+            currentCrateIndex++;
+            renderCrateDigging();
+        }
+    });
+}
 // --- 15. COLEÇÕES ---
 if (openCreateCollectionBtn) {
     openCreateCollectionBtn.addEventListener('click', () => {
@@ -1890,7 +2216,42 @@ function getStarString(score) {
     const halfStar = (score % 1) >= 0.5 ? '½' : '';
     return '★'.repeat(fullStars) + halfStar;
 }
+// --- CARIMBO ANALÓGICO DE PRENSAGEM (STUDIO TIMESTAMP V4.5 BLINDADO) ---
+function formatStudioTimestamp(rawDate) {
+    if (!rawDate) {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        return `${y}.${m}.${d}`;
+    }
 
+    try {
+        // Se vier com timestamp (ex: 2026-10-18T...) ou formato ISO YYYY-MM-DD
+        if (typeof rawDate === 'string' && rawDate.includes('-')) {
+            const clean = rawDate.split('T')[0];
+            const parts = clean.split('-');
+            if (parts.length === 3) {
+                return `${parts[0]}.${parts[1].padStart(2, '0')}.${parts[2].padStart(2, '0')}`;
+            }
+        }
+
+        // Se vier no formato brasileiro DD/MM/YYYY
+        if (typeof rawDate === 'string' && rawDate.includes('/')) {
+            const parts = rawDate.split('/');
+            if (parts.length === 3) {
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                const year = parts[2];
+                return `${year}.${month}.${day}`;
+            }
+        }
+    } catch (e) {
+        console.warn("Erro ao formatar timestamp:", e);
+    }
+
+    return String(rawDate);
+}
 function renderDiary() {
     if (diaryCount) diaryCount.textContent = diaryReviews.length;
     if (!diarySection) return;
@@ -1930,7 +2291,7 @@ function renderDiary() {
         return;
     }
 
-    processedReviews.forEach(item => {
+processedReviews.forEach(item => {
         const card = document.createElement('div');
         card.className = 'review-card';
         card.style.marginBottom = '18px';
@@ -1939,13 +2300,21 @@ function renderDiary() {
             ? `<div class="diary-vibes-row">${item.vibes.map(v => `<span class="vibe-badge">#${sanitize(v)}</span>`).join('')}</div>`
             : '';
 
+        const isMasterPress = item.rating >= 5.0;
+        const pressDate = formatStudioTimestamp(item.date);
+
         card.innerHTML = `
             <img src="${item.cover}" alt="${sanitize(item.title)}" class="review-cover">
             <div class="review-content">
+                <!-- CARIMBO TÉCNICO DE ESTÚDIO (STUDIO TIMESTAMP) -->
+                <div class="studio-press-stamp ${isMasterPress ? 'master-stamp' : ''}">
+                    [ LAT: 33 RPM · PRESS: ${pressDate} · SIDE A/B COMPLETE ]
+                </div>
+
                 <div class="review-header">
                     <div>
                         <h3>${sanitize(item.title)} <span class="release-year">(${item.year})</span></h3>
-                        <p class="artist-name">${sanitize(item.artist)} • Ouvido em ${item.date}</p>
+                        <p class="artist-name">${sanitize(item.artist)}</p>
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <button class="edit-card-btn" title="Adicionar à Coleção" onclick="openAddToCollectionModal(${item.id})">📁 Coleção</button>
@@ -1969,6 +2338,10 @@ function renderDiary() {
 
 function renderWantList() {
     if (wantCount) wantCount.textContent = wantToListen.length;
+    if (currentWantViewMode === 'crate') {
+        renderCrateDigging();
+        return;
+    }
     if (!wantGrid) return;
     wantGrid.innerHTML = '';
 
