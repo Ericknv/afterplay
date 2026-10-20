@@ -1,6 +1,6 @@
 // ============================================================================
 // AFTERPLAY — CLIENTE DE BANCO & AUTENTICAÇÃO REAL (supabaseClient.js)
-// Release 4.0
+// Release 5.0: Obsidian & Tube Amp Edition (Vercel Ready)
 // ============================================================================
 
 const SUPABASE_URL = "https://xxixdmzexaejxpfjtiyx.supabase.co";
@@ -85,10 +85,13 @@ window.dbAuth = {
     },
 
     async resetPasswordForEmail(email) {
+        // Redirecionamento compatível com localhost e Vercel (*.vercel.app)
+        const redirectUrl = window.location.origin + window.location.pathname;
+
         if (window.supabase && typeof window.supabase.createClient === 'function') {
             const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             const { data, error } = await client.auth.resetPasswordForEmail(email, {
-                redirectTo: window.location.origin + window.location.pathname
+                redirectTo: redirectUrl
             });
             if (error) throw error;
             return { data, error: null };
@@ -134,11 +137,11 @@ window.dbAuth = {
     }
 };
 
-// Disponibilizado globalmente em window.executeSupabaseQuery com Auto-Refresh de Token
+// Disponibilizado globalmente em window.executeSupabaseQuery
 window.executeSupabaseQuery = async function(table, action, payload = null, filter = null) {
     let token = SUPABASE_ANON_KEY;
 
-    // 1. Tenta recuperar o token atualizado diretamente pelo cliente do Supabase
+    // 1. Tenta recuperar o token atualizado através do cliente oficial
     if (window.supabase && typeof window.supabase.createClient === 'function') {
         try {
             const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -148,11 +151,11 @@ window.executeSupabaseQuery = async function(table, action, payload = null, filt
                 window.dbAuth.setSession(data.session);
             }
         } catch (e) {
-            console.warn("Falha ao recuperar sessão ativa do SDK:", e);
+            console.warn("Falha ao recuperar sessão ativa via SDK:", e);
         }
     }
 
-    // 2. Fallback para a sessão do localStorage caso o SDK não responda
+    // 2. Fallback para sessão gravada em localStorage
     if (token === SUPABASE_ANON_KEY) {
         const session = window.dbAuth.getSession();
         if (session && session.access_token) {
@@ -198,7 +201,7 @@ window.executeSupabaseQuery = async function(table, action, payload = null, filt
 
         const data = await res.json();
 
-        // Se o Supabase ainda retornar erro de token expirado
+        // Tratamento seguro de expiração de token
         if (!res.ok && (data.message === 'JWT expired' || data.msg === 'JWT expired' || res.status === 401)) {
             window.dbAuth.signOut();
             window.location.reload();

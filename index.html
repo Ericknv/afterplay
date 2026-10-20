@@ -2,15 +2,15 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Afterplay — Your Music Listening Diary</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="alternate icon" type="image/png" href="favicon.png-removebg-preview.png">
 
-    <!-- FONTES: INTER, JETBRAINS MONO, SYNE & SPACE MONO -->
+    <!-- FONTES EDITORIAIS & ANALÓGICAS -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Lora:ital,wght@1,400;1,600&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
     
     <!-- SUPABASE JS CLIENT V2 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -19,7 +19,9 @@
 </head>
 <body>
 
-    <!-- 1. TELA DE ENTRADA OBRIGATÓRIA (AUTH GATE) -->
+    <!-- ======================================================================
+         1. TELA DE ENTRADA OBRIGATÓRIA (AUTH GATE)
+         ====================================================================== -->
     <div id="authGateScreen" class="auth-gate-screen">
         <div class="auth-gate-panel">
             <div class="brand" style="justify-content: center; margin-bottom: 8px;">
@@ -28,7 +30,7 @@
             </div>
             <p class="auth-gate-subtitle">// STUDIO ACCESS & SESSION VAULT</p>
             <p class="auth-gate-desc">
-                Faça login para carregar seu acervo pessoal, diário de bordo e Top 5 da Vida em nuvem criptografada.
+                Faça login para carregar seu acervo pessoal, diário de bordo e Vitrine de Honra em nuvem criptografada.
             </p>
 
             <div class="auth-tabs-row" style="margin-top: 20px;">
@@ -37,27 +39,26 @@
             </div>
 
             <form id="gateAuthForm" class="auth-form" onsubmit="return false;">
-                <!-- 1. NOME (Exibido apenas em Criar Conta) -->
+                <!-- 1. Nome do Ouvinte -->
                 <div class="auth-field" id="gateNameField" style="display: none;">
                     <label>Nome do Ouvinte:</label>
-                    <input type="text" id="gateNameInput" class="studio-input" placeholder="Ex: Erick Nava">
+                    <input type="text" id="gateNameInput" class="studio-input" placeholder="Ex: Erick Nava" autocomplete="name" autocapitalize="words">
                 </div>
 
-                <!-- 2. E-MAIL -->
+                <!-- 2. E-mail -->
                 <div class="auth-field">
                     <label>E-mail:</label>
-                    <input type="email" id="gateEmailInput" class="studio-input" placeholder="seu-email@exemplo.com" required>
+                    <input type="email" id="gateEmailInput" class="studio-input" placeholder="seu-email@exemplo.com" required autocomplete="email" inputmode="email">
                 </div>
 
-                <!-- 3. SENHA, RECUPERAÇÃO & MEDIDOR -->
+                <!-- 3. Senha, Recuperação e Medidor de Segurança -->
                 <div class="auth-field">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <label>Senha:</label>
                         <button type="button" id="forgotPasswordLink" class="auth-text-link" onclick="openResetPasswordModal(event)">Esqueci minha senha</button>
                     </div>
-                    <input type="password" id="gatePasswordInput" class="studio-input" placeholder="Mínimo 6 caracteres" required>
+                    <input type="password" id="gatePasswordInput" class="studio-input" placeholder="Mínimo 6 caracteres" required autocomplete="current-password">
 
-                    <!-- MEDIDOR DE FORÇA DA SENHA -->
                     <div id="passwordStrengthWrapper" class="password-strength-wrapper" style="display: none;">
                         <div class="strength-track">
                             <div id="passwordStrengthFill" class="strength-fill"></div>
@@ -67,19 +68,21 @@
                 </div>
 
                 <button type="button" id="gateSubmitBtn" class="btn-save-review" style="width: 100%; margin-top: 14px;">
-                    ⚡ ACESSAR MEU ACERVO
+                    ACESSAR MEU ACERVO
                 </button>
             </form>
         </div>
     </div>
 
-    <!-- 2. CONTAINER PRINCIPAL DO ESTÚDIO (EXIBIDO APÓS AUTENTICAÇÃO) -->
+    <!-- ======================================================================
+         2. CONTAINER PRINCIPAL DO ESTÚDIO (EXIBIDO APÓS AUTENTICAÇÃO)
+         ====================================================================== -->
     <div id="appMainContainer" class="hidden">
 
         <!-- CABEÇALHO SUPERIOR -->
         <header class="studio-header">
             <div class="header-left">
-                <button id="menuToggleBtn" class="menu-toggle-btn" title="Abrir Menu">☰</button>
+                <button id="menuToggleBtn" class="menu-toggle-btn" title="Abrir Menu" aria-label="Abrir Menu">☰</button>
                 <a href="#/" style="text-decoration: none; color: inherit;">
                     <div class="brand">
                         <span class="brand-rec-dot"></span>
@@ -88,22 +91,18 @@
                 </a>
             </div>
 
-            <!-- BARRA DE BUSCA DE ESTÚDIO COM QUICK DROPDOWN -->
+            <!-- BARRA DE BUSCA RÁPIDA DE ESTÚDIO -->
             <div class="header-center">
                 <form id="topSearchForm" class="top-search-form" onsubmit="return false;">
-                    <!-- Ícone Vetorial de Estúdio -->
                     <svg class="search-lens-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"/>
                         <path d="m21 21-4.3-4.3"/>
                     </svg>
 
-                    <!-- Input Técnico -->
                     <input type="text" id="topSearchInput" class="top-search-input" placeholder="Buscar no acervo de discos..." autocomplete="off">
-
-                    <!-- Tecla Mecânica de Console -->
                     <kbd class="quick-search-kbd" title="Pressione / para buscar">/</kbd>
 
-                    <!-- Dropdown Flutuante de Resultados Rápidos -->
+                    <!-- Dropdown de Resultados Rápidos -->
                     <div id="quickSearchDropdown" class="quick-search-dropdown hidden">
                         <div class="quick-dropdown-header">
                             <span>// ACERVO DE ALTA FIDELIDADE · RESULTADOS IMEDIATOS</span>
@@ -129,7 +128,7 @@
             </div>
         </header>
 
-        <!-- DRAWER DE NAVEGAÇÃO LATERAL -->
+        <!-- NAVEGAÇÃO LATERAL (DRAWER) -->
         <div id="drawerOverlay" class="drawer-overlay hidden"></div>
         <aside id="sideDrawer" class="side-drawer">
             <div class="drawer-header">
@@ -137,13 +136,26 @@
                     <span class="brand-rec-dot"></span>
                     <span class="brand-name">AFTERPLAY</span>
                 </div>
-                <button id="closeDrawerBtn" class="close-drawer-btn">✕</button>
+                <button id="closeDrawerBtn" class="close-drawer-btn" aria-label="Fechar Menu">✕</button>
             </div>
 
-         <!-- NAVEGAÇÃO ANALÓGICA REESTRUTURADA (RELEASE 4.5) -->
             <nav class="drawer-nav">
-                <!-- 1. SESSÕES -->
+                <!-- 1. PÁGINA INICIAL -->
                 <a href="#/" class="drawer-link active-route">
+                    <span class="drawer-icon-wrap">
+                        <svg class="drawer-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                            <polyline points="9 22 9 12 15 12 15 22"/>
+                        </svg>
+                    </span>
+                    <div class="drawer-text-group">
+                        <span class="drawer-title">Início</span>
+                        <span class="drawer-subtitle">Estúdio & Destaques</span>
+                    </div>
+                </a>
+
+                <!-- 2. SESSÕES -->
+                <a href="#/sessoes" class="drawer-link">
                     <span class="drawer-icon-wrap">
                         <svg class="drawer-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"/>
@@ -153,11 +165,11 @@
                     </span>
                     <div class="drawer-text-group">
                         <span class="drawer-title">Sessões</span>
-                        <span class="drawer-subtitle">Diário do Disco</span>
+                        <span class="drawer-subtitle">Diário Completo</span>
                     </div>
                 </a>
 
-                <!-- 2. O ACERVO -->
+                <!-- 3. O ACERVO -->
                 <a href="#/busca" class="drawer-link">
                     <span class="drawer-icon-wrap">
                         <svg class="drawer-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -173,12 +185,12 @@
                     </div>
                 </a>
 
-                <!-- 3. FILA DA VITROLA -->
+                <!-- 4. FILA DA VITROLA -->
                 <a href="#/want-to-listen" class="drawer-link">
                     <span class="drawer-icon-wrap">
                         <svg class="drawer-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"/>
-                            <polyline points="12 6 12 12 16 14"/>
+                            <polyline points="12 6 12 16 14"/>
                         </svg>
                     </span>
                     <div class="drawer-text-group">
@@ -187,7 +199,7 @@
                     </div>
                 </a>
 
-                <!-- 4. GAVETAS & COLEÇÕES -->
+                <!-- 5. GAVETAS & COLEÇÕES -->
                 <a href="#/colecoes" class="drawer-link">
                     <span class="drawer-icon-wrap">
                         <svg class="drawer-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -202,7 +214,7 @@
                     </div>
                 </a>
 
-                <!-- 5. GABINETE & ESTATÍSTICAS -->
+                <!-- 6. GABINETE & ESTATÍSTICAS -->
                 <a href="#/perfil" class="drawer-link">
                     <span class="drawer-icon-wrap">
                         <svg class="drawer-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -214,17 +226,17 @@
                         <span class="drawer-subtitle">Métricas & Fita Master</span>
                     </div>
                 </a>
-            </nav>
+            </nav>  
 
             <div class="drawer-footer">
-                <span class="drawer-meta-tag">RELEASE 4.0 // SUPABASE CLOUD</span>
+                <span class="drawer-meta-tag">RELEASE 5.0 // OBSIDIAN VAULT</span>
             </div>
         </aside>
 
         <!-- PLAYER ANALÓGICO FIXO DE FITA (PREVIEWS DE 30s) -->
         <div id="studioPlayerBar" class="studio-player-bar hidden">
             <div class="player-left">
-                <button id="playerMasterPlayBtn" class="player-btn">▶</button>
+                <button id="playerMasterPlayBtn" class="player-btn" title="Pausar / Retomar" aria-label="Play/Pause">▶</button>
                 <div class="vu-equalizer" id="vuEqualizer">
                     <span class="vu-bar"></span>
                     <span class="vu-bar"></span>
@@ -243,22 +255,24 @@
             <div class="player-right">
                 <span id="playerTimeDisplay" class="player-time">0:00</span>
                 <span class="player-label-tape">TAPE DECK // 30s PREVIEW</span>
+                <button type="button" id="playerCloseBtn" class="player-close-btn" title="Encerrar prévia acústica" aria-label="Fechar Áudio">✕</button>
             </div>
         </div>
 
-        <!-- CONTEÚDO PRINCIPAL (SPA VIEWS) -->
+        <!-- ==================================================================
+             CONTEÚDO PRINCIPAL (SPA VIEWS)
+             ================================================================== -->
         <main class="studio-main-content">
 
-            <!-- VIEW: DIÁRIO DE BORDO (#/ ou #/diario) -->
+            <!-- VIEW 1: PÁGINA INICIAL // ESTÚDIO EDITORIAL (#/) -->
             <section id="viewHome" class="spa-view">
                 
-                <!-- HERO SECTION EDITORIAL (EXCLUSIVA DA PÁGINA INICIAL) -->
+                <!-- 1. Hero Section com Vitrola Tátil -->
                 <div class="brand-hero-grid">
-                    <!-- Coluna da Esquerda: Manifesto & Ações -->
                     <div class="hero-left-col">
                         <div class="hero-badge-row">
                             <span class="hero-rec-indicator"></span>
-                            <span class="hero-meta-badge">STUDIO LOGGING ARCHIVE // V4.0</span>
+                            <span class="hero-meta-badge">STUDIO LOGGING ARCHIVE // V5.0</span>
                         </div>
 
                         <h1 class="hero-main-title">
@@ -271,88 +285,148 @@
                         </p>
 
                         <div class="hero-cta-group">
-                            <a href="#/busca" class="btn-hero-primary">
-                                Começar o Meu Diário
-                            </a>
-                            <a href="#/busca" class="btn-hero-secondary">
-                                Explorar Acervo
-                            </a>
+                            <a href="#/busca" class="btn-hero-primary">Começar o Meu Diário</a>
+                            <a href="#/busca" class="btn-hero-secondary">Explorar Acervo</a>
                         </div>
                     </div>
 
-                    <!-- Coluna da Direita: Amostra Analógica da Obra / Cartão de Estúdio -->
                     <div class="hero-right-col">
-                        <div class="hero-preview-stage">
-                            <div class="hero-sample-card">
-                                <div class="hero-sample-top">
-                                    <span class="sample-serial">// NOW LOGGING</span>
-                                    <span class="sample-stars">★★★★★</span>
+                        <div class="hero-turntable-stage">
+                            <div id="heroInteractiveVinyl" class="hero-vinyl-disc" title="Reproduzir prévia acústica">
+                                <div class="vinyl-hairline-groove groove-1"></div>
+                                <div class="vinyl-hairline-groove groove-2"></div>
+                                <div class="vinyl-hairline-groove groove-3"></div>
+
+                                <div class="vinyl-spindle-core">
+                                    <button type="button" id="heroPlayheadSpindleBtn" class="spindle-playhead-btn" aria-label="Reproduzir prévia acústica">
+                                        <svg id="heroSpindleIcon" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M8 5v14l11-7z"/>
+                                        </svg>
+                                    </button>
                                 </div>
-                                <div class="hero-sample-media">
-                                    <div class="sample-vinyl-disc"></div>
-                                    <img src="https://upload.wikimedia.org/wikipedia/en/e/ed/Green_Day_-_American_Idiot_album_cover.png" 
-                                    alt="American Idiot" 
-                                    class="sample-cover" 
-                                    crossorigin="anonymous"
-                                    referrerpolicy="no-referrer"
-                                    loading="eager"
-                                    onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80';">
-                                </div>
-                                <div class="hero-sample-info">
-                                    <h4>American Idiot</h4>
-                                    <p>Green Day • 2004</p>
-                                    <div class="sample-pill-row">
-                                        <span class="sample-badge">❤️ Boulevard of Broken Dreams</span>
-                                        <span class="sample-badge-muted">#estrada</span>
-                                    </div>
-                                </div>
+                            </div>
+
+                            <div class="hero-album-sleeve">
+                                <img id="heroCoverImg" src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600" alt="Capa da Obra em Destaque" loading="lazy">
+                                <div class="sleeve-laminate-shine"></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- SUB-VIEW DO DIÁRIO (COM MARGEM SUPERIOR AMPLIADA) -->
-                <div class="diary-subview-wrapper">
-                    <!-- CONTROLES DE FILTRO E SELEÇÃO DE VIBES DO DIÁRIO -->
-                    <div class="filter-controls-row">
-                        <div class="filter-search-box">
-                            <input type="text" id="filterDiaryInput" class="studio-input" placeholder="Filtrar por título, artista ou resenha...">
+                <!-- 2. Fita de Telemetria de Estúdio -->
+                <div class="studio-telemetry-strip">
+                    <div class="telemetry-inner-track">
+                        <span class="telemetry-block">[ <span class="telem-label">SESSÕES:</span> <span id="telemSessionsCount" class="telem-val">--</span> ]</span>
+                        <span class="telem-dot">·</span>
+                        <span class="telemetry-block">[ <span class="telem-label">NOTA MÉDIA:</span> <span id="telemAvgRating" class="telem-val">-- ★</span> ]</span>
+                        <span class="telem-dot">·</span>
+                        <span class="telemetry-block">[ <span class="telem-label">META 2026:</span> <span id="telemGoalPercent" class="telem-val">0%</span> ]</span>
+                        <span class="telem-dot">·</span>
+                        <span class="telemetry-block">[ <span class="telem-label">FREQUÊNCIA:</span> <span id="telemDominantVibe" class="telem-val">#EM CALIBRAÇÃO</span> ]</span>
+                    </div>
+                </div>
+
+                <!-- 3. Dock de Ações Rápidas -->
+                <div class="studio-dock-wrapper">
+                    <div class="studio-quick-dock">
+                        <button type="button" class="dock-key-btn" onclick="triggerQuickFocusSearch()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                                <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 10 10"/>
+                            </svg>
+                            <span>REGISTRAR SESSÃO</span>
+                        </button>
+                        <div class="dock-separator"></div>
+                        <button type="button" class="dock-key-btn" onclick="window.location.hash='#/busca'; setTimeout(runBlindNeedleTuner, 150);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                                <circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+                            </svg>
+                            <span>AGULHA CEGA</span>
+                        </button>
+                        <div class="dock-separator"></div>
+                        <button type="button" class="dock-key-btn" onclick="openLatestCardStudio()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                                <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M9 21V9"/>
+                            </svg>
+                            <span>CARD STUDIO</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4. Vitrine Rápida: Gatefold Spotlight (Disco de Ouro) -->
+                <div id="gatefoldSpotlightContainer" class="gatefold-spotlight-wrapper"></div>
+
+                <!-- 5. Grid Horizontal de Encartes (Últimas 5 Sessões) -->
+                <div class="home-recent-shelf-container">
+                    <div class="shelf-header-row">
+                        <div>
+                            <span class="section-title">// SESSÕES RECENTES (ÚLTIMAS AUDIÇÕES)</span>
+                            <p class="section-subtitle">Encartes catalogados em rotação recente no estúdio.</p>
                         </div>
-
-                        <div class="filter-sort-box">
-                            <select id="sortDiarySelect" class="studio-select">
-                                <option value="recent">Mais Recentes Primeiro</option>
-                                <option value="ratingDesc">Maior Nota (★)</option>
-                                <option value="ratingAsc">Menor Nota (★)</option>
-                                <option value="yearDesc">Ano de Lançamento (Novo ➔ Antigo)</option>
-                                <option value="yearAsc">Ano de Lançamento (Antigo ➔ Novo)</option>
-                            </select>
-                        </div>
+                        <a href="#/sessoes" class="btn-secondary-action" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-size: 0.76rem;">
+                            <span>Ver Todas as Sessões</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="9 18 15 12 9 6"/></svg>
+                        </a>
                     </div>
 
-                    <!-- CHIPS DE ATMOSFERA (LISTENING MOODS) -->
-                    <div class="vibes-chips-filter">
-                        <button type="button" class="vibe-chip active" data-vibe="all">Todas as Vibrações</button>
-                        <button type="button" class="vibe-chip" data-vibe="madrugada">#madrugada</button>
-                        <button type="button" class="vibe-chip" data-vibe="estudo">#estudo</button>
-                        <button type="button" class="vibe-chip" data-vibe="chuva">#chuva</button>
-                        <button type="button" class="vibe-chip" data-vibe="estrada">#estrada</button>
-                        <button type="button" class="vibe-chip" data-vibe="melancolia">#melancolia</button>
-                        <button type="button" class="vibe-chip" data-vibe="energia">#energia</button>
+                    <div class="studio-eq-filter-row">
+                        <button type="button" class="eq-pill-btn active" data-eq="all">[ TODAS ]</button>
+                        <button type="button" class="eq-pill-btn" data-eq="5stars">[ NOTA 5.0 ★ ]</button>
+                        <button type="button" class="eq-pill-btn" data-eq="70s">[ ANOS 70 ]</button>
+                        <button type="button" class="eq-pill-btn" data-eq="90s">[ ANOS 90 ]</button>
+                        <button type="button" class="eq-pill-btn" data-eq="hasReview">[ COM RESENHA ]</button>
                     </div>
 
-                    <div class="section-title-row" style="margin-top: 36px;">
-                        <span class="section-title">DIÁRIO DE BORDO (<span id="diaryCount">0</span>)</span>
-                    </div>
+                    <div id="homeRecentEncartesGrid" class="encartes-5col-grid"></div>
 
-                    <div id="diarySection" class="diary-list-container">
-                        <!-- Cards de review renderizados via JS -->
+                    <div style="text-align: center; margin-top: 36px;">
+                        <a href="#/sessoes" class="btn-hero-secondary" style="font-size: 0.85rem; padding: 12px 28px; text-decoration: none;">
+                            Explorar Acervo Completo de Sessões (<span id="homeTotalDiaryCount">0</span>) →
+                        </a>
                     </div>
                 </div>
 
             </section>
 
-            <!-- VIEW: BUSCA DEDICADA & DISCOGRAFIAS (#/busca) -->
+            <!-- VIEW 2: TODAS AS SESSÕES GRAVADAS (#/sessoes) -->
+            <section id="viewSessions" class="spa-view hidden">
+                <div class="section-title-row">
+                    <div>
+                        <span class="section-title">SESSÕES GRAVADAS (<span id="diaryCount">0</span>)</span>
+                        <p class="section-subtitle">Catálogo analógico completo de todas as audições e resenhas registradas.</p>
+                    </div>
+                </div>
+
+                <div class="filter-controls-row">
+                    <div class="filter-search-box">
+                        <input type="text" id="filterDiaryInput" class="studio-input" placeholder="Filtrar por título, artista ou resenha...">
+                    </div>
+
+                    <div class="filter-sort-box">
+                        <select id="sortDiarySelect" class="studio-select">
+                            <option value="recent">Mais Recentes Primeiro</option>
+                            <option value="ratingDesc">Maior Nota (★)</option>
+                            <option value="ratingAsc">Menor Nota (★)</option>
+                            <option value="yearDesc">Ano de Lançamento (Novo ➔ Antigo)</option>
+                            <option value="yearAsc">Ano de Lançamento (Antigo ➔ Novo)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="vibes-chips-filter">
+                    <button type="button" class="vibe-chip active" data-vibe="all">Todas as Vibrações</button>
+                    <button type="button" class="vibe-chip" data-vibe="madrugada">#madrugada</button>
+                    <button type="button" class="vibe-chip" data-vibe="estudo">#estudo</button>
+                    <button type="button" class="vibe-chip" data-vibe="chuva">#chuva</button>
+                    <button type="button" class="vibe-chip" data-vibe="estrada">#estrada</button>
+                    <button type="button" class="vibe-chip" data-vibe="melancolia">#melancolia</button>
+                    <button type="button" class="vibe-chip" data-vibe="energia">#energia</button>
+                </div>
+
+                <div id="diarySection" class="diary-list-container" style="margin-top: 24px;"></div>
+            </section>
+
+            <!-- VIEW 3: O ACERVO & DISCOGRAFIAS (#/busca) -->
             <section id="viewSearch" class="spa-view hidden">
                 <div class="dedicated-search-header">
                     <h2>EXPLORAR O ACERVO MUSICAL</h2>
@@ -360,7 +434,35 @@
 
                     <div class="dedicated-search-box">
                         <input type="text" id="dedicatedSearchInput" class="studio-input" placeholder="Digite o nome de uma banda, artista ou álbum...">
-                        <button id="dedicatedSearchBtn" class="btn-save-review">PESQUISAR</button>
+                        <button id="dedicatedSearchBtn" class="btn-save-review" style="padding: 10px 20px;">Consultar Acervo</button>
+                    </div>
+                </div>
+
+                <!-- COMPONENTE SINTONIZADOR: AGULHA CEGA (BLIND NEEDLE V5.0) -->
+                <div class="blind-needle-deck">
+                    <div class="needle-deck-header">
+                        <div class="needle-brand-meta">
+                            <span class="needle-vu-dot"></span>
+                            <span class="needle-title">// AGULHA CEGA · SINTONIZADOR DE DESCOBERTA</span>
+                        </div>
+                        <span id="needleFreqDisplay" class="needle-freq-stamp">FM 88.5 MHz · MODO ESPERADO</span>
+                    </div>
+
+                    <div class="needle-deck-body">
+                        <div class="needle-action-col">
+                            <p class="needle-lead-desc">
+                                Sem rumo no catálogo? Deixe a agulha varrer as frequências do seu histórico sonoro e resgatar uma obra fora do seu radar.
+                            </p>
+                            <button type="button" id="triggerBlindNeedleBtn" class="btn-save-review needle-trigger-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                                </svg>
+                                <span>GIRAR AGULHA CEGA</span>
+                            </button>
+                        </div>
+
+                        <!-- Card Dinâmico do Vinil Sintonizado -->
+                        <div id="needleResultContainer" class="needle-result-card hidden"></div>
                     </div>
                 </div>
 
@@ -372,14 +474,15 @@
 
                     <div id="discographyArtistName" class="discography-headline-tag hidden"></div>
 
-                    <!-- ARTISTAS ENCONTRADOS -->
                     <div id="artistsBlock" class="artists-section">
                         <div id="artistsResultsGrid" class="artists-grid"></div>
                     </div>
 
-                    <!-- CABEÇALHO DO GRID DE ÁLBUNS -->
                     <div class="albums-block-header">
-                        <span id="albumsBlockTitle" class="albums-section-title">💽 ÁLBUNS ENCONTRADOS</span>
+                        <span id="albumsBlockTitle" class="albums-section-title" style="display: inline-flex; align-items: center; gap: 8px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                            ÁLBUNS ENCONTRADOS
+                        </span>
                         <div id="discographySortControl" class="hidden">
                             <select id="sortDiscographySelect" class="studio-select" style="font-size: 0.75rem;">
                                 <option value="yearAsc">Ordem Cronológica (Antigos ➔ Novos)</option>
@@ -394,8 +497,7 @@
                 </div>
             </section>
 
-            <!-- VIEW: FILA DA VITROLA (#/want-to-listen) -->
-            <!-- VIEW: FILA DA VITROLA (#/want-to-listen) — MODO GARIMPO 3D (V4.5) -->
+            <!-- VIEW 4: FILA DA VITROLA (#/want-to-listen) -->
             <section id="viewWant" class="spa-view hidden">
                 <div class="section-title-row">
                     <div>
@@ -403,7 +505,6 @@
                         <p class="section-subtitle">Discos reservados para audição nas próximas sessões de estúdio.</p>
                     </div>
 
-                    <!-- Alternador de Visualização: Grelha vs Garimpo -->
                     <div class="crate-view-toggle-group">
                         <button type="button" id="toggleGridWantBtn" class="crate-toggle-btn active" title="Visualização em Grade">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
@@ -426,39 +527,28 @@
                     </div>
                 </div>
 
-                <!-- 1. VISUALIZAÇÃO EM GRADE PADRÃO -->
                 <div id="wantGrid" class="albums-results-grid"></div>
 
-                <!-- 2. VISUALIZAÇÃO EM MODO GARIMPO 3D (CRATE DIGGING) -->
                 <div id="crateDiggingContainer" class="crate-digging-wrapper hidden">
                     <div class="crate-ambient-lighting"></div>
 
-                    <!-- Indicador de Posição / Contador -->
                     <div class="crate-status-bar">
                         <span id="crateIndexIndicator" class="crate-serial-stamp">// CRATE DIGGING · DISCO 01 DE 00</span>
                         <span class="crate-nav-hints"><kbd>←</kbd><kbd>→</kbd> Folhear Vinis</span>
                     </div>
 
-                    <!-- Caixa Isométrica de Discos -->
                     <div class="crate-box-stage">
                         <button type="button" id="cratePrevBtn" class="crate-arrow-nav left" title="Disco Anterior">‹</button>
-                        
-                        <div id="crateRecordsStack" class="crate-records-stack">
-                            <!-- Inserido dinamicamente pelo JavaScript -->
-                        </div>
-
+                        <div id="crateRecordsStack" class="crate-records-stack"></div>
                         <button type="button" id="crateNextBtn" class="crate-arrow-nav right" title="Próximo Disco">›</button>
                     </div>
 
-                    <!-- Painel Informativo da Obra em Foco -->
-                    <div id="crateFocusMeta" class="crate-focus-meta">
-                        <!-- Inserido dinamicamente -->
-                    </div>
+                    <div id="crateFocusMeta" class="crate-focus-meta"></div>
                 </div>
             </section>
-            <!-- VIEW: COLEÇÕES & PASTAS (#/colecoes) -->
+
+            <!-- VIEW 5: GAVETAS & COLEÇÕES (#/colecoes) -->
             <section id="viewCollections" class="spa-view hidden">
-                <!-- Visão Geral das Pastas -->
                 <div id="collectionsMainContainer">
                     <div class="section-title-row">
                         <div>
@@ -473,10 +563,10 @@
                     <div id="collectionsGrid" class="collections-grid"></div>
                 </div>
 
-                <!-- Detalhes de uma Coleção Aberta -->
                 <div id="collectionDetailContainer" class="hidden">
-                    <button type="button" id="backToCollectionsBtn" class="btn-secondary-action" style="margin-bottom: 16px;">
-                        ‹ Voltar para Todas as Coleções
+                    <button type="button" id="backToCollectionsBtn" class="btn-secondary-action" style="margin-bottom: 16px; display: inline-flex; align-items: center; gap: 6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                        Todas as Gavetas
                     </button>
 
                     <div class="collection-detail-header">
@@ -492,24 +582,26 @@
                 </div>
             </section>
 
-            <!-- VIEW: PERFIL, MÉTRICAS & DESAFIO (#/perfil) -->
+            <!-- VIEW 6: GABINETE & ESTATÍSTICAS (#/perfil) -->
             <section id="viewProfile" class="spa-view hidden">
-                <!-- Top 5 da Vida -->
                 <div class="profile-section-block">
                     <div class="section-title-row">
                         <div>
-                            <span class="section-title">OS 5 ÁLBUNS DA MINHA VIDA</span>
-                            <p class="section-subtitle">Seu mural permanente de obras-primas definitivas.</p>
+                            <span class="section-title">VITRINE DE HONRA</span>
+                            <p class="section-subtitle">As cinco obras definitivas que moldaram sua história sonora.</p>
                         </div>
-                        <button type="button" id="shareTopFiveBtn" class="share-card-btn">
-                            📤 Exportar Pôster Top 5
+                        <button type="button" id="shareTopFiveBtn" class="share-card-btn" style="display: inline-flex; align-items: center; gap: 6px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                            </svg>
+                            <span>Exportar Vitrine</span>
                         </button>
                     </div>
 
                     <div id="topFiveGrid" class="top-five-grid"></div>
                 </div>
 
-                <!-- Desafio Anual de Audição -->
                 <div class="profile-section-block">
                     <div class="challenge-panel">
                         <div class="challenge-header-row">
@@ -517,8 +609,9 @@
                                 <span class="studio-tag">LISTENING CHALLENGE</span>
                                 <h3 id="challengeHeadline" style="margin-top: 6px;">Meta de Audição: 0 de 50 álbuns</h3>
                             </div>
-                            <button type="button" id="editGoalBtn" class="btn-secondary-action" style="font-size: 0.75rem;">
-                                🎯 Ajustar Meta
+                            <button type="button" id="editGoalBtn" class="btn-secondary-action" style="font-size: 0.75rem; display: inline-flex; align-items: center; gap: 6px;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                                Ajustar Meta
                             </button>
                         </div>
 
@@ -534,7 +627,6 @@
                     </div>
                 </div>
 
-                <!-- Estatísticas Gerais -->
                 <div class="stats-cards-grid">
                     <div class="stat-card">
                         <span class="stat-number" id="statReviews">0</span>
@@ -554,9 +646,7 @@
                     </div>
                 </div>
 
-                <!-- Métricas Visuais (Histograma, Décadas, Artistas, Vibrações) -->
                 <div class="analytics-panels-grid">
-                    <!-- Histograma de Notas -->
                     <div class="analytics-card">
                         <div class="analytics-header">
                             <span>DISTRIBUIÇÃO DE NOTAS</span>
@@ -565,7 +655,6 @@
                         <div id="ratingsHistogram" class="histogram-container"></div>
                     </div>
 
-                    <!-- Linha do Tempo por Décadas -->
                     <div class="analytics-card">
                         <div class="analytics-header">
                             <span>LINHA DO TEMPO // DÉCADAS</span>
@@ -574,7 +663,6 @@
                         <div id="decadesList" class="analytics-bars-list"></div>
                     </div>
 
-                    <!-- Top Artistas Mais Ouvidos -->
                     <div class="analytics-card">
                         <div class="analytics-header">
                             <span>ARTISTAS MAIS CATALOGADOS</span>
@@ -582,7 +670,6 @@
                         <div id="topArtistsList" class="ranking-list"></div>
                     </div>
 
-                    <!-- Mapa de Vibrações / Moods -->
                     <div class="analytics-card">
                         <div class="analytics-header">
                             <span>ATMOSFERAS DE ESCUTA</span>
@@ -592,56 +679,70 @@
                     </div>
                 </div>
 
-                <!-- Launch Bar do Afterplay Wrapped -->
                 <div class="wrapped-launch-banner" style="margin-top: 30px;">
                     <div>
                         <span class="studio-tag">STUDIO VAULT // RECAP</span>
-                        <h3 style="color: var(--text-primary); margin-top: 4px;">Afterplay Wrapped (Retrospectiva Sonora)</h3>
+                        <h3 style="color: var(--text-primary); margin-top: 4px;">Afterplay Master Tape // Retrospectiva</h3>
                         <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 2px;">
                             Compile seus discos mais pontuados e exporte pôsteres comemorativos em alta definição.
                         </p>
                     </div>
-                    <button type="button" id="openWrappedBtn" class="btn-save-review" style="padding: 10px 20px;">
-                        ✨ Abrir Retrospectiva
+                    <button type="button" id="openWrappedBtn" class="btn-save-review" style="padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                        Abrir Retrospectiva
                     </button>
                 </div>
             </section>
 
         </main>
-    </div> <!-- Fim de #appMainContainer -->
+    </div>
 
     <!-- ======================================================================
          MODAIS GLOBAIS DO SISTEMA
          ====================================================================== -->
 
-    <!-- 3. MODAL DE AVALIAÇÃO FAIXA A FAIXA (STUDIO LOGGING CONSOLE) -->
+    <!-- MODAL 1: AVALIAÇÃO FAIXA A FAIXA (STUDIO LOGGING CONSOLE) -->
     <div id="reviewModal" class="modal-overlay hidden">
         <div class="modal-box logging-modal-box">
             <div class="modal-header">
                 <span id="modalModeTag" class="studio-tag">STUDIO LOGGING CONSOLE</span>
-                <button type="button" id="closeModalBtn" class="close-search-btn">✕</button>
+                <button type="button" id="closeModalBtn" class="close-search-btn" aria-label="Fechar Modal">✕</button>
             </div>
 
             <div class="modal-body-logging">
-                <!-- Painel Esquerdo: Capa e Meta do Disco -->
                 <div class="modal-album-spotlight">
-                    <img id="modalCover" src="https://via.placeholder.com/600" alt="Capa">
+                    <img id="modalCover" src="https://via.placeholder.com/600" alt="Capa" loading="lazy">
                     <h3 id="modalAlbumTitle" class="modal-album-headline">Título</h3>
                     <p id="modalArtistYear" class="modal-album-subline">Artista • Ano</p>
 
-                    <div class="modal-side-actions" style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px;">
-                        <button type="button" id="pinTopFiveBtn" class="btn-secondary-action" style="font-size: 0.75rem;">
-                            🔥 Fixar no Top 5 da Vida
+                    <div class="modal-side-actions">
+                        <button type="button" id="pinTopFiveBtn" class="modal-studio-action-btn" title="Fixar no mural definitivo">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                            </svg>
+                            <span>Vitrine de Honra</span>
                         </button>
-                        <button type="button" id="modalAddCollectionBtn" class="btn-secondary-action" style="font-size: 0.75rem;">
-                            📁 Adicionar a uma Pasta
+
+                        <button type="button" id="modalAddCollectionBtn" class="modal-studio-action-btn" title="Adicionar à pasta temática">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                                <line x1="12" y1="11" x2="12" y2="17"/>
+                                <line x1="9" y1="14" x2="15" y2="14"/>
+                            </svg>
+                            <span>Guardar na Gaveta</span>
+                        </button>
+
+                        <button type="button" id="modalToggleWantBtn" class="modal-studio-action-btn" title="Reservar para próximas audições">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                            <span id="modalToggleWantText">Fila da Vitrola</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Painel Direito: Faixas, Notas, Resenha e Moods -->
                 <div class="modal-review-inputs">
-                    <!-- Seletor de Nota Final com Meia Estrela -->
                     <div class="interactive-rating-block">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <label style="font-size: 0.75rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">
@@ -652,7 +753,6 @@
                         <div id="interactiveStarPicker" class="star-picker-container"></div>
                     </div>
 
-                    <!-- Lista de Faixas com Previews de 30s -->
                     <div class="tracklist-wrapper">
                         <div class="tracklist-header-row">
                             <span style="font-size: 0.72rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">FAIXAS DO ÁLBUM</span>
@@ -661,7 +761,6 @@
                         <div id="modalTracklist" class="tracklist-scroll-box"></div>
                     </div>
 
-                    <!-- Atmosferas de Escuta (Moods) -->
                     <div class="mood-selection-block" style="margin-top: 12px;">
                         <label style="font-size: 0.72rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">
                             ATMOSFERA DESTA AUDIÇÃO (#MOOD):
@@ -676,7 +775,6 @@
                         </div>
                     </div>
 
-                    <!-- Campo da Resenha Crítica -->
                     <div class="review-text-block" style="margin-top: 12px;">
                         <label style="font-size: 0.72rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">
                             NOTAS DO DIÁRIO / RESENHA:
@@ -684,32 +782,51 @@
                         <textarea id="reviewTextInput" class="studio-textarea" placeholder="Registre suas impressões, contexto da escuta e pensamentos sobre este vinil..."></textarea>
                     </div>
 
-                    <button type="button" id="saveReviewBtn" class="btn-save-review" style="width: 100%; margin-top: 14px;">
-                        💾 SALVAR AVALIAÇÃO NO BANCO
+                    <button type="button" id="saveReviewBtn" class="btn-save-review" style="width: 100%; margin-top: 10px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        <span>Gravar Sessão</span>
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 4. MODAL DO CARD STUDIO 3.0 (CANVAS GENERATOR) -->
+    <!-- MODAL 2: SELETOR DE MATRIZ DO CARD STUDIO -->
+    <div id="cardStudioSelectModal" class="modal-overlay hidden" style="z-index: 10000;">
+        <div class="modal-box" style="max-width: 520px;">
+            <div class="modal-header">
+                <span class="studio-tag">// CARD STUDIO · SELEÇÃO DE MATRIZ</span>
+                <button type="button" id="closeCardSelectModalBtn" class="close-search-btn" aria-label="Fechar Modal">✕</button>
+            </div>
+
+            <div style="padding: 10px 0;">
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px;">
+                    Escolha uma das sessões gravadas para exportar o card editorial:
+                </p>
+
+                <input type="text" id="cardStudioSearchInput" class="studio-input" placeholder="Filtrar por álbum ou artista..." style="margin-bottom: 14px;">
+                <div id="cardStudioAlbumChoicesList" class="choices-list-scroll" style="max-height: 320px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: GERADOR DE CARDS (CARD STUDIO 3.0) -->
     <div id="cardStudioModal" class="modal-overlay hidden">
         <div class="modal-box studio-card-modal-box">
             <div class="modal-header">
                 <span class="studio-tag">AFTERPLAY STUDIO // CARD GENERATOR 3.0</span>
-                <button type="button" id="closeCardStudioBtn" class="close-search-btn">✕</button>
+                <button type="button" id="closeCardStudioBtn" class="close-search-btn" aria-label="Fechar Card Studio">✕</button>
             </div>
 
             <div class="card-studio-workspace">
-                <!-- Preview Interativo do Canvas -->
                 <div class="canvas-preview-container">
                     <canvas id="shareCanvas" width="1080" height="1350"></canvas>
                     <span id="cardResolutionLabel" class="canvas-resolution-tag">1080x1350 // POST EDITORIAL (4:5)</span>
                 </div>
 
-                <!-- Painel de Controles Gráficos -->
                 <div class="card-controls-panel">
-                    <!-- Formato de Proporção -->
                     <div class="control-group">
                         <label>FORMATO / PROPORÇÃO:</label>
                         <div class="control-buttons-row">
@@ -719,7 +836,6 @@
                         </div>
                     </div>
 
-                    <!-- Estilo Tipográfico -->
                     <div class="control-group">
                         <label>ESTILO EDITORIAL:</label>
                         <div class="control-buttons-row">
@@ -728,34 +844,37 @@
                         </div>
                     </div>
 
-                    <!-- Paleta de Cores Analógicas -->
                     <div class="control-group">
                         <label>PALETA DE ESTÚDIO:</label>
                         <div class="theme-palette-row">
-                            <button type="button" class="theme-color-dot active" data-theme="midnight" style="background: #121010;" title="Midnight Espresso"></button>
-                            <button type="button" class="theme-color-dot" data-theme="tubeglow" style="background: #54260b;" title="Tube Glow"></button>
-                            <button type="button" class="theme-color-dot" data-theme="deepvelvet" style="background: #1e1b4b;" title="Deep Velvet"></button>
-                            <button type="button" class="theme-color-dot" data-theme="graphite" style="background: #2b2f38;" title="Matte Graphite"></button>
+                            <button type="button" class="theme-color-dot active" data-theme="midnight" style="background: #141110;" title="Midnight Espresso"></button>
+                            <button type="button" class="theme-color-dot" data-theme="tubeglow" style="background: #381a07;" title="Tube Glow"></button>
+                            <button type="button" class="theme-color-dot" data-theme="deepvelvet" style="background: #1a1638;" title="Deep Velvet"></button>
+                            <button type="button" class="theme-color-dot" data-theme="graphite" style="background: #242830;" title="Matte Graphite"></button>
                         </div>
                     </div>
 
-                    <button type="button" id="downloadCardBtn" class="btn-save-review" style="width: 100%; margin-top: 24px;">
-                        💾 EXPORTAR EM ALTA RESOLUÇÃO (PNG)
+                    <button type="button" id="downloadCardBtn" class="btn-save-review" style="width: 100%; margin-top: 20px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        <span>Exportar Card (PNG)</span>
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 5. MODAL DO AFTERPLAY WRAPPED -->
+    <!-- MODAL 4: AFTERPLAY WRAPPED -->
     <div id="wrappedModal" class="modal-overlay hidden">
         <div class="modal-box wrapped-modal-box">
             <div class="modal-header">
                 <span id="wrappedModalTag" class="studio-tag">AFTERPLAY WRAPPED // RETROSPECTIVA</span>
-                <button type="button" id="closeWrappedBtn" class="close-search-btn">✕</button>
+                <button type="button" id="closeWrappedBtn" class="close-search-btn" aria-label="Fechar Retrospectiva">✕</button>
             </div>
 
-            <!-- Controles de Período -->
             <div class="wrapped-period-controls">
                 <div class="control-buttons-row" style="max-width: 320px;">
                     <button type="button" id="wrappedTypeMonthlyBtn" class="studio-toggle-btn active">Mensal</button>
@@ -793,7 +912,6 @@
                 </div>
             </div>
 
-            <!-- Spotlight do Álbum do Período -->
             <div class="wrapped-recap-body">
                 <p id="wrappedPeriodSubtitle" class="wrapped-period-subtitle">OUTUBRO DE 2026</p>
                 <h2 id="wrappedHeroTitle">Sua Trilha Sonora do Mês</h2>
@@ -815,7 +933,6 @@
 
                 <div id="wrappedTopAlbumContainer" class="wrapped-top-album-spotlight"></div>
 
-                <!-- Mosaico das Capas -->
                 <div class="wrapped-mosaic-block">
                     <span style="font-size: 0.72rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; display: block; margin-bottom: 8px;">
                         MOSAICO DE DISCOS DO PERÍODO:
@@ -824,18 +941,18 @@
                 </div>
 
                 <button type="button" id="exportWrappedCardBtn" class="btn-save-review" style="width: 100%; margin-top: 20px;">
-                    🖼️ GERAR PÔSTER WRAPPED (PNG)
+                    GERAR PÔSTER WRAPPED (PNG)
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- 6. MODAL DE CRIAÇÃO DE NOVA COLEÇÃO -->
+    <!-- MODAL 5: CRIAÇÃO DE NOVA COLEÇÃO -->
     <div id="createCollectionModal" class="modal-overlay hidden">
         <div class="modal-box" style="max-width: 440px;">
             <div class="modal-header">
-                <span class="studio-tag">COLEÇÕES // NOVA PASTA TEMÁTICA</span>
-                <button type="button" id="closeCreateCollectionBtn" class="close-search-btn">✕</button>
+                <span class="studio-tag">GAVETAS // NOVA COLEÇÃO TEMÁTICA</span>
+                <button type="button" id="closeCreateCollectionBtn" class="close-search-btn" aria-label="Fechar Modal">✕</button>
             </div>
 
             <div style="padding: 10px 0;">
@@ -850,18 +967,18 @@
                 </div>
 
                 <button type="button" id="submitCreateCollectionBtn" class="btn-save-review" style="width: 100%; margin-top: 16px;">
-                    💾 CRIAR PASTA NO BANCO
+                    Criar Gaveta
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- 7. MODAL DE ARQUIVAMENTO EM COLEÇÃO EXISTENTE -->
+    <!-- MODAL 6: ARQUIVAMENTO EM COLEÇÃO EXISTENTE -->
     <div id="addToCollectionModal" class="modal-overlay hidden">
         <div class="modal-box" style="max-width: 420px;">
             <div class="modal-header">
                 <span class="studio-tag">ARQUIVAR DISCO // SELECIONAR PASTA</span>
-                <button type="button" id="closeAddToCollectionBtn" class="close-search-btn">✕</button>
+                <button type="button" id="closeAddToCollectionBtn" class="close-search-btn" aria-label="Fechar Modal">✕</button>
             </div>
 
             <div style="padding: 10px 0;">
@@ -871,12 +988,12 @@
         </div>
     </div>
 
-    <!-- 8. MODAL DE SESSÃO DO OUVINTE (CONSOLE DO USUÁRIO) -->
+    <!-- MODAL 7: CONSOLE DO OUVINTE -->
     <div id="authModal" class="modal-overlay hidden">
         <div class="modal-box" style="max-width: 440px;">
             <div class="modal-header">
                 <span class="studio-tag">AFTERPLAY CLOUD // CONSOLE DO OUVINTE</span>
-                <button type="button" id="closeAuthModalBtn" class="close-search-btn">✕</button>
+                <button type="button" id="closeAuthModalBtn" class="close-search-btn" aria-label="Fechar Modal">✕</button>
             </div>
 
             <div id="authLoggedInView" style="padding: 10px 0;">
@@ -890,7 +1007,7 @@
 
                 <div class="sync-status-box">
                     <span style="font-size: 0.8rem; color: #10B981; font-family: 'JetBrains Mono', monospace; font-weight: 700;">
-                        🟢 SUPABASE POSTGRESQL ATIVO
+                        SUPABASE POSTGRESQL ATIVO
                     </span>
                     <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">
                         Suas reviews, fila de espera, notas e coleções estão sincronizadas diretamente no banco em nuvem com isolamento Row Level Security (RLS).
@@ -899,25 +1016,24 @@
 
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button type="button" id="forceSyncCloudBtn" class="btn-secondary-action" style="flex: 1; margin-top: 0;">
-                        🔄 Sincronizar Agora
+                        Sincronizar Agora
                     </button>
                     <button type="button" id="logoutBtn" class="btn-remove-from-col" style="flex: 1; border-color: var(--crimson-rec); color: #ff6b8b;">
-                        🚪 Encerrar Sessão
+                        Encerrar Sessão
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 9. MODAL DE RECUPERAÇÃO / REDEFINIÇÃO DE SENHA (POSICIONADA FORA DOS CONTAINERS) -->
+    <!-- MODAL 8: RECUPERAÇÃO DE SENHA -->
     <div id="resetPasswordModal" class="modal-overlay hidden" style="z-index: 100000;">
         <div class="modal-box" style="max-width: 420px; z-index: 100001; position: relative;">
             <div class="modal-header">
                 <span class="studio-tag">RECUPERAÇÃO DE ACESSO // STUDIO KEY</span>
-                <button type="button" id="closeResetPasswordBtn" class="close-search-btn">✕</button>
+                <button type="button" id="closeResetPasswordBtn" class="close-search-btn" aria-label="Fechar Modal">✕</button>
             </div>
 
-            <!-- Etapa A: Solicitar link por e-mail -->
             <div id="requestResetStep" style="padding: 10px 0;">
                 <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 14px;">
                     Informe seu e-mail cadastrado. Enviaremos um link de autenticação direta para você redefinir sua senha com segurança.
@@ -925,15 +1041,14 @@
 
                 <div class="auth-field">
                     <label>E-mail da Conta:</label>
-                    <input type="email" id="resetEmailInput" class="studio-input" placeholder="seu-email@exemplo.com" required>
+                    <input type="email" id="resetEmailInput" class="studio-input" placeholder="seu-email@exemplo.com" required inputmode="email">
                 </div>
 
                 <button type="button" id="sendResetEmailBtn" class="btn-save-review" style="width: 100%; margin-top: 14px;">
-                    ✉️ ENVIAR LINK DE RECUPERAÇÃO
+                    ENVIAR LINK DE RECUPERAÇÃO
                 </button>
             </div>
 
-            <!-- Etapa B: Definir nova senha (quando acessado via link mágico) -->
             <div id="updatePasswordStep" class="hidden" style="padding: 10px 0;">
                 <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 14px;">
                     Defina sua nova chave de acesso para reassumir o controle do seu acervo.
@@ -950,7 +1065,7 @@
                 </div>
 
                 <button type="button" id="submitNewPasswordBtn" class="btn-save-review" style="width: 100%; margin-top: 14px;">
-                    🔒 ATUALIZAR CHAVE & ENTRAR
+                    ATUALIZAR CHAVE & ENTRAR
                 </button>
             </div>
         </div>
@@ -960,7 +1075,7 @@
     <div id="toastContainer" class="toast-container"></div>
     <audio id="afterplayAudio" preload="none"></audio>
 
-    <!-- SCRIPTS MODULARIZADOS: O BANCO CARREGA ANTES DA APLICAÇÃO -->
+    <!-- SCRIPTS MODULARIZADOS -->
     <script src="supabaseClient.js"></script>
     <script src="app.js"></script>
 </body>
